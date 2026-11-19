@@ -1,0 +1,25 @@
+# Compilación STM32 / CMake
+build/
+cmake-build-*/
+*.o
+*.d
+*.elf
+*.map
+*.bin
+*.hex
+
+# Credenciales y archivos locales (NO subir)
+secrets.h
+*.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.vscode/
+*.original
+*.nuevo
