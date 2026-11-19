@@ -1,0 +1,885 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{silence}
+\usepackage{amsthm}
+\usepackage{enumitem}
+\usepackage{eufrak}
+\usepackage{tabularx}
+\usepackage{lipsum}
+\usepackage{pifont}
+\usepackage{yfonts}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{comment}
+\usepackage{amsfonts}
+\usepackage{csquotes}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{mathrsfs}
+\usepackage{setspace}
+\usepackage{textcomp}
+\usepackage{multicol}
+\usepackage{blindtext}
+\usepackage{enumerate}
+\usepackage{kantlipsum}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\renewcommand{\refname}{Referencias}
+\renewcommand{\lstlistingname}{Listado}
+% Marcador de contenido pendiente (se muestra en rojo).
+\usepackage{xr}
+\IfFileExists{main.aux}{\externaldocument{main}}{}
+\newcommand{\PEND}[1]{{\color{red}[#1]}}
+\begin{document}
+
+\title{Anexos técnicos: microrred DC de 48 V emulada (VITA-DC)\\
+}
+
+\author{\IEEEauthorblockN{Sofía Parra Rozo}
+\IEEEauthorblockA{\textit{Departamento de Ingeniería Eléctrica y Electrónica} \\
+\textit{Universidad de los Andes}\\
+Bogotá, Colombia}
+\and
+\IEEEauthorblockN{Tomás Durán Cardoso}
+\IEEEauthorblockA{\textit{Departamento de Ingeniería Eléctrica y Electrónica} \\
+\textit{Universidad de los Andes}\\
+Bogotá, Colombia}
+}
+
+\maketitle
+
+Este documento reúne los detalles de implementación que acompañan al informe principal: modelos y curvas de los subsistemas, convertidor universal, arquitectura digital, lazos de control, reglas del SCADA, detalle de la validación de S13 y comparación con las referencias. Las secciones conservan las letras de anexo (B a H) con que las cita el informe principal; el código y los datos están en \texttt{https://github.com/soofffp/VITA-DC-Microgrid}.
+
+\appendices
+\setcounter{section}{1}
+
+\section{Modelos de los Subsistemas}
+\label{app:modelos}
+\label{sec:subsistemas}
+\label{sec:caracterizacion}
+\label{sec:circuitos}
+
+Cada subsistema se presenta con tres elementos. Primero, el modelo matemático que relaciona su variable física de entrada (irradiancia $G_{poa}$, velocidad de viento $v_w$, estado de carga SOC, hora del día en el caso de la carga) con su salida eléctrica (tensión, corriente, potencia). Presentar únicamente esas ecuaciones deja implícita la forma del comportamiento que describen, así que, en segundo lugar, se hace esa forma explícita mediante la curva característica del subsistema, evaluada sobre el rango completo de su variable de entrada. Por último, se presenta el circuito concreto que produce esa curva: la topología general de referencia tomada de la literatura, con la aclaración explícita de qué elementos de esa topología corresponden al modelo efectivamente implementado y cuáles se muestran solo como contexto, sin estar presentes en el firmware actual. Los cuatro subsistemas comparten el mismo reloj de simulación (Sección~\ref{sec:reloj}) y se conectan al mismo bus de 48\,V a través del convertidor universal (Sección~\ref{sec:convertidor_universal}).
+
+\subsection{Reloj común de simulación}
+\label{sec:reloj}
+
+Para que el SCADA vea un balance de potencia coherente entre generación y demanda, los cuatro subsistemas comparten una misma escala de tiempo. Un día de 24\,h se comprime en $T_{dia}=360$\,s, de modo que 1\,h simulada equivale a 15\,s reales, y todas las placas arrancan a la hora simulada $h_0=6$\,h (amanecer). La hora simulada de cada STM32 se obtiene del tiempo $t$ transcurrido desde su arranque,
+\begin{equation*}
+h(t) = \left[h_0 + 24\,\frac{t}{T_{dia}}\right] \bmod 24,
+\end{equation*}
+y de ella derivan la irradiancia del PV, el viento de la turbina y la demanda de la carga. La batería no tiene un perfil diario propio: su estado de carga se integra con una aceleración fija de $60\times$ respecto al tiempo real (un minuto real equivale a una hora del banco), de modo que las transiciones de carga y descarga profundas se observan en minutos.
+
+Se eligieron 360\,s por tres razones. La primera es que 1\,h equivale a 15\,s exactos, lo que facilita leer las gráficas del SCADA. La segunda es que la inercia del emulador de la turbina, con una constante de tiempo de unos 2\,s, es mucho menor que esos 15\,s, así que la turbina alcanza a seguir el viento. La tercera es que el informe de referencia de la carga~\cite{hernandez2026carga} comprime sus perfiles de 24\,h a 12\,min, y este día resulta la mitad de largo, lo que acorta los experimentos.
+
+Dos consideraciones prácticas acompañan este esquema. Cada placa mide su propio tiempo, así que las STM32 se energizan o se reinician juntas para que sus perfiles queden en fase. Además, $T_{dia}$ y $h_0$ son constantes de compilación (\texttt{MICRORED\_DAY\_S} y \texttt{MICRORED\_DAY\_START\_H}) que deben coincidir en el firmware de todas las placas; cambiar la duración del día exige reprogramarlas.
+
+\subsection{Arreglo fotovoltaico}
+\label{sec:modelo_pv}
+
+\textbf{Modelo.} El módulo emulado es el Renogy RNG-100D-SS que Aristizábal \emph{et al.}~\cite{aristizabal2026pv} caracterizan en su simulador de arreglo fotovoltaico, de $V_{oc}=24.3$\,V, $I_{sc}=5.21$\,A, $V_{mp}=20.4$\,V, $I_{mp}=4.91$\,A, $N_s=36$ celdas, NOCT de 47\,$^{\circ}$C, $\beta_{Voc}=-0.068$\,V/$^{\circ}$C y $\alpha_{Isc}=+0.0005$\,/$^{\circ}$C. El subsistema PV genera su perfil de irradiancia sobre el reloj común (Sección~\ref{sec:reloj}): el sol sale a las 6\,h, alcanza su máximo al mediodía y se pone a las 18\,h,
+\begin{equation}
+\label{eq:pv_G}
+G_{poa}(h) = \begin{cases}
+1000\,\sin\!\left(\pi\,\dfrac{h-6}{12}\right), & 6 < h < 18 \\[6pt]
+0, & \text{en otro caso,}
+\end{cases}
+\end{equation}
+donde $h$ es la hora simulada. Para no apagar el modelo durante la noche, la irradiancia se satura inferiormente en 2\,W/m$^2$.
+
+A partir de la irradiancia se estima la temperatura de celda con el modelo de NOCT, para una temperatura ambiente $T_a=25\,^{\circ}$C,
+\begin{equation}
+\label{eq:pv_Tcell}
+T_{cell} = T_a + \frac{NOCT-20}{800}\,G_{poa},
+\end{equation}
+que a $1000$\,W/m$^2$ da una celda a unos 59\,$^{\circ}$C. Esto es coherente con lo medido en el prototipo, donde la tensión en vacío fue de 22.06\,V, que según $\beta_{Voc}$ corresponde a una celda cerca de 58\,$^{\circ}$C.
+
+Con $G_{poa}$ y $T_{cell}$ ya calculados, la corriente y la tensión del módulo se obtienen de las ecuaciones estándar de corriente fotogenerada y tensión de circuito abierto,
+\begin{equation}
+\label{eq:pv_I}
+I = I_{sc,stc}\cdot\frac{G_{poa}}{1000}\left[1+\alpha_{Isc}(T_{cell}-25)\right],
+\end{equation}
+\begin{equation}
+\label{eq:pv_V}
+V = V_{oc,stc} + \beta_{Voc}(T_{cell}-25) + V_T \ln\!\left(\frac{G_{poa}}{1000}\right),
+\end{equation}
+con $V_T=0.026\,N_s$ la tensión térmica del módulo.
+
+Durante la noche la corriente y la potencia del subsistema son prácticamente nulas y el campo \texttt{status} se mantiene en operación normal, porque el firmware del PV solo distingue entre operación normal y desborde del tiempo de la interrupción de control (Sección~\ref{sec:arquitectura}). % [VERIFICAR] ecuaciones exactas de la planta en pv_plant.c/.h (no revisado): Tcell NOCT y parametros Renogy tomados del paper y de la medicion en hardware.
+
+
+\textbf{Caracterización.} El modelo fotovoltaico calcula, para una irradiancia y temperatura de celda dadas, un único punto de operación $(I, V)$ mediante las ecuaciones de corriente fotogenerada y tensión de circuito abierto ya presentadas. Para obtener las curvas $I$-$V$/$P$-$V$ y no solo ese punto, se completa el modelo con un diodo equivalente de una sola exponencial, calibrado para reproducir el $I_{sc}$ y el $V_{oc}$ de las ecuaciones anteriores en los extremos del barrido y un punto de máxima potencia cercano al medido en hardware ($V_{mp}\approx18$\,V, $I_{mp}\approx4.9$\,A, $P\approx88.6$\,W a $1000$\,W/m$^2$). La Fig.~\ref{fig:pv_curvas} presenta el resultado para $G_{poa} \in \{200,400,600,800,1000\}$\,W/m$^2$, con los parámetros del Renogy ya citados. A $1000$\,W/m$^2$ el punto de máxima potencia resulta de 88.9\,W, a 18.1\,V y 4.9\,A.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{fig_pv_IV_PV.png}}
+\caption{Curvas características $I$-$V$ y $P$-$V$ del módulo PV para distintas irradiancias (los puntos marcan el máximo de potencia).}
+\label{fig:pv_curvas}
+\end{figure}
+
+\textbf{Circuito equivalente.} La Fig.~\ref{fig:pv_circuito}, adaptada de Bader \emph{et al.}~\cite{bader2019pv}, muestra la topología general de un diodo: fuente de corriente fotogenerada $I_{pv}$, diodo $D$, resistencia paralelo $R_{sh}$ y resistencia serie $R_s$. El modelo implementado (ecs.~\eqref{eq:pv_I}--\eqref{eq:pv_V}) corresponde al caso límite $R_s\rightarrow 0$, $R_{sh}\rightarrow\infty$ de esta misma topología, es decir, $I_{ph}$ en paralelo con $D$ únicamente, consistente con que el modelo tampoco ajusta $R_s$ ni $R_{sh}$.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=0.9\linewidth]{Captura de pantalla 2026-09-18 224047.png}}
+\caption{Topología general de un diodo (adaptada de~\cite{bader2019pv}). El modelo implementado usa el caso límite sin $R_s$ ni $R_{sh}$.}
+\label{fig:pv_circuito}
+\end{figure}
+
+\textbf{Convertidor asociado.} El convertidor de este subsistema es una instancia del convertidor universal (Sección~\ref{sec:convertidor_universal}): un \emph{boost} de dos semiconductores cuyo ciclo de trabajo fija el lazo de control del propio subsistema (Sección~\ref{sec:control}). En régimen permanente ese ciclo de trabajo toma el valor $D_{pv}=1-V_{pv}/V_{bus}$ de la relación estática de la Tabla~\ref{tab:convertidores}.
+
+\subsection{Turbina eólica}
+\label{sec:modelo_eolica}
+
+\textbf{Modelo.} La turbina emula el banco de referencia de González \emph{et al.}~\cite{gonzalez2026eolica}: un generador síncrono de imanes permanentes (PMSG) con rectificación pasiva de diodos, accionado por un motor con variador de frecuencia. La velocidad de viento se genera sobre el reloj común (Sección~\ref{sec:reloj}) como una componente lenta de un ciclo por día simulado, con mínimo a las 6\,h y máximo a las 18\,h, más una turbulencia de baja frecuencia (ruido gaussiano filtrado, de desviación estándar 1.2\,m/s y constante de tiempo de 5\,s),
+\begin{equation}
+\label{eq:wind_v}
+v_w(h) = 8 + 3.5\,\sin\!\left(2\pi\,\frac{h-12}{24}\right) + v_{turb}(t),
+\end{equation}
+con $v_w$ saturada entre 0 y 28\,m/s.
+
+El viento se traduce en la frecuencia de referencia del variador (velocidad de arranque de 3\,m/s, nominal de 11\,m/s y de corte de 25\,m/s, según la referencia~\cite{gonzalez2026eolica}), y la frecuencia real la sigue con una respuesta de primer orden de constante de tiempo 2\,s que representa la rampa del variador y la inercia del conjunto,
+\begin{equation}
+\label{eq:wind_f}
+f_{ref}(v_w) = \begin{cases}
+0, & v_w < 3 \ \text{o} \ v_w > 25 \\[2pt]
+f_{max}\,\dfrac{v_w-3}{11-3}, & 3 \le v_w \le 11 \\[6pt]
+f_{max}, & 11 < v_w \le 25
+\end{cases}
+\end{equation}
+con $v_w$ en m/s y $f_{max}=25.5$\,Hz (3.19\,Hz por m/s en el tramo lineal).
+
+El generador con su rectificador se modela como una fuente de Thevenin cuya tensión en vacío y resistencia equivalente dependen de la frecuencia,
+\begin{equation}
+\label{eq:wind_Vdc}
+V_{dc} = V_{oc}(f) - R_{eq}(f)\,I,
+\end{equation}
+\begin{equation}
+\label{eq:wind_Voc}
+V_{oc}(f) = K_e f - V_d\,\kappa(f), \qquad R_{eq}(f) = R_0 + k_R f,
+\end{equation}
+con $I\ge0$ por la conducción unidireccional de los diodos, $K_e=2.7765$\,V/Hz, $V_d=-2.014$\,V, $R_0=8.750\,\Omega$ y $k_R=0.2435\,\Omega$/Hz, ajustados por mínimos cuadrados a 22 puntos de las Tablas IV y VI de la referencia~\cite{gonzalez2026eolica}. El factor $\kappa(f)=\min(1,f/f_{rod})$ lleva el desplazamiento $V_d$ a cero por debajo de una frecuencia de rodilla $f_{rod}=5$\,Hz, de modo que $V_{oc}(0)=0$. 
+A 25.5\,Hz resultan $V_{oc}=72.8$\,V y $R_{eq}=15.0\,\Omega$, es decir, una potencia máxima ideal $V_{oc}^2/(4R_{eq})=88.6$\,W. Como el ajuste se hizo sobre las mediciones del banco, los valores a baja frecuencia dependen de la forma lineal supuesta para $R_{eq}(f)$ y de la rodilla en $f_{rod}$, que son elecciones del modelo.
+La tensión $V_{dc}$ alimenta un convertidor \emph{boost} hacia el bus de 48\,V (Sección~\ref{sec:convertidor_universal}), cuyo lazo de MPPT por Perturbar y Observar es el mismo del PV (Sección~\ref{sec:control}).
+
+El emulador tiene tres estados: calma ($v_w$ por debajo del arranque), marcha y sobrevelocidad ($v_w$ por encima del corte), con una histéresis de reconexión alrededor de cada umbral. Fuera de marcha la fuente se desconecta del convertidor: el ciclo de trabajo es cero, el MPPT se detiene y la tensión del capacitor sigue a $V_{oc}$, que llega a 72.8\,V si la turbina se detiene a frecuencia nominal. La turbina reporta entonces corriente y potencia en cero, con el campo \texttt{status} en 1 (inactivo)
+y, en sobrevelocidad, además activa la bandera de protección. La histéresis de reconexión es de 0.3\,m/s sobre cada umbral.
+
+\textbf{Caracterización.} La fuente de la turbina se caracteriza por sus curvas $V_{dc}$--$I$ y $P$--$I$ a distintas frecuencias de operación (ec.~\eqref{eq:wind_Vdc}). Con $V_{oc}(f)$ la tensión en vacío, la potencia $P=V_{dc}I$ es una parábola en la corriente con su máximo en $V_{dc}=V_{oc}/2$, por lo que el MPPT de Perturbar y Observar sobre la tensión de entrada se comporta igual que en el PV. La frecuencia de operación queda fijada por el viento según la ec.~\eqref{eq:wind_f}. La Fig.~\ref{fig:wind_curvas} presenta estas curvas para 5, 10, 15, 20 y 25.5\,Hz; el máximo de potencia crece de 6.3\,W a 5\,Hz hasta 88.6\,W a 25.5\,Hz.
+
+\begin{figure}[H]
+
+\centerline{\includegraphics[width=\linewidth]{fig_wind_power_curve.png}}
+\caption{Curvas $V_{dc}$--$I$ y $P$--$I$ de la fuente de la turbina para distintas frecuencias de operación.}
+\label{fig:wind_curvas}
+\end{figure}
+
+\textbf{Circuito equivalente.} La Fig.~\ref{fig:wind_circuito}, adaptada de Benavides-Mendoza \emph{et al.}~\cite{benavides2025eolica}, es el circuito simplificado del generador síncrono de imanes permanentes (GSIP) acoplado a un rectificador trifásico no controlado ($E_{RS}$, $2R_s$, $2L_s$, $C_{in}$, $I_{L1}$) que ese trabajo usa para obtener la función de transferencia del convertidor. El modelo implementado (ec.~\eqref{eq:wind_Vdc}) es el equivalente de Thevenin de esa misma topología visto desde el lado DC: $V_{oc}(f)$ hace de fuente rectificada y $R_{eq}(f)$ agrupa la resistencia de los devanados, la reactancia síncrona y la conmutación de los diodos, de modo que la dependencia con la frecuencia absorbe el efecto de $2L_s$. El capacitor de entrada forma parte del modelo del convertidor \emph{boost} (Sección~\ref{sec:modelo_convertidores}), y no se modelan otras dinámicas del generador más allá de la respuesta de primer orden de la frecuencia.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=0.95\linewidth]{344281653001_gf14.png}}
+\caption{Circuito de referencia GSIP + rectificador trifásico (adaptado de~\cite{benavides2025eolica}). El modelo implementado es su equivalente de Thevenin del lado DC (ec.~\eqref{eq:wind_Vdc}).}
+\label{fig:wind_circuito}
+\end{figure}
+
+\subsection{Banco de baterías}
+\label{sec:modelo_bateria}
+
+\textbf{Modelo.} El banco de baterías (10s5p, $Q=14.5$\,Ah) se modela mediante un circuito equivalente de Thevenin de primer orden: una fuente $V_{oc}(\mathrm{SOC})$, una resistencia serie $R_0(\mathrm{SOC})$ y una rama $R_1\|C_1$ que representa la difusión electroquímica,
+\begin{equation}
+\label{eq:bat_V}
+V_{bat} = V_{oc}(\mathrm{SOC}) - I\cdot R_0(\mathrm{SOC}) - V_1,
+\end{equation}
+\begin{equation*}
+\frac{dV_1}{dt} = \frac{I\,R_1 - V_1}{R_1 C_1},
+\end{equation*}
+con $I$ positiva en descarga, $R_1=0.04\,\Omega$ y $C_1=1000$\,F (constante de tiempo de 40\,s). La tensión en vacío del pack es la de la celda NMC del banco de referencia~\cite{vega2026bateria} multiplicada por las 10 celdas en serie, interpolada linealmente entre 11 puntos (de 3.30\,V por celda con SOC 0\,\% a 4.20\,V con SOC 100\,\%), y $R_0$ crece linealmente al bajar el SOC, de 0.08\,$\Omega$ a SOC 100\,\% hasta 0.14\,$\Omega$ a SOC 0\,\%. % [VERIFICAR] origen del rango de R0 (0.08-0.14 ohm): el paper de bateria no publica la tabla numerica.
+
+A diferencia de los otros subsistemas, la corriente de la batería no sigue un perfil propio, porque es el subsistema que forma el bus de 48\,V. Su corriente resulta del balance de potencia del resto de la microrred, $P_{net}=P_{pv}+P_{eol}-P_{carga}$, que el gateway le comunica (positiva cuando sobra generación y la batería se carga), y queda limitada por la corriente nominal $I_{nom}=7.0$\,A, ligeramente por debajo de 0.5C (7.25\,A), que es el régimen continuo de la referencia. Ese límite se reduce de forma lineal en tres frentes, como lo haría un BMS: por SOC (la carga baja a cero entre 95 y 100\,\% y la descarga entre 10 y 5\,\%), por tensión del pack (carga entre 41.8 y 42.0\,V, descarga entre 31 y 30\,V) y por temperatura (entre 45 y 60\,$^{\circ}$C). La temperatura sigue un modelo térmico de primer orden con $T_{amb}=25\,^{\circ}$C, $R_{th}=3$\,K/W y $C_{th}=200$\,J/K (constante de tiempo de 600\,s). En el modo seguro el límite baja a 2\,A, y en el modo limitado el SCADA fija los topes de carga y descarga hasta un máximo de 15\,A.
+
+El resto de la microrred se representa en el bus como una potencia constante $P_{net}$ con repliegue (\emph{fold-back}): la demanda neta se aplica completa cuando el bus está sobre 45.3\,V y se anula por debajo de 43.5\,V, y el excedente se aplica completo por debajo de 51\,V y se anula por encima de 58\,V. Por eso, cuando el excedente supera lo que la batería puede absorber, el bus puede subir sobre la banda de 50.4\,V, como se observa en E2 y E3 (Sección~\ref{sec:validacion}).
+
+El estado de carga se actualiza mediante conteo de Coulombs con una aceleración temporal fija $a=60$ (Sección~\ref{sec:reloj}),
+\begin{equation}
+\label{eq:bat_SOC}
+\mathrm{SOC}_{k+1} = \mathrm{SOC}_k - \frac{a \cdot \Delta t \cdot I}{3600\,Q}\times 100,
+\end{equation}
+con $\Delta t$ el período fijo de la interrupción de 10\,kHz. Como en cada paso se suma un incremento muy pequeño a un SOC del orden de 100, el acumulado se hace con suma compensada de Kahan para no perder resolución en \emph{float}. El rendimiento coulómbico se toma igual a uno.
+
+Finalmente, la corriente y la potencia del banco se reportan con signo (positivas en descarga y negativas en carga), de modo que el campo \texttt{status} ya no necesita codificar la dirección de la corriente y toma los valores generales del firmware: 0 para operación normal, 1 para inactivo, 2 para una falla por tensión o temperatura fuera de los límites duros, 3 para la interrupción de control fuera de tiempo y 4 para la pérdida de la señal de vida del gateway.
+
+
+\textbf{Caracterización.} La Fig.~\ref{fig:bat_curvas} muestra a la izquierda la tabla $V_{oc}(\mathrm{SOC})$ y la recta $R_0(\mathrm{SOC})$ del firmware, y a la derecha las curvas de descarga resultantes a 0.2C, a la corriente nominal de 7\,A y a 1C, con $Q=14.5$\,Ah y la rama $R_1\|C_1$ ya incluida.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{fig_battery_discharge_soc.png}}
+\caption{Tabla $V_{oc}(\mathrm{SOC})$ y $R_0(\mathrm{SOC})$ del firmware (izquierda) y curvas de descarga resultantes (derecha).}
+\label{fig:bat_curvas}
+\end{figure}
+
+\textbf{Circuito equivalente.} La Fig.~\ref{fig:bat_circuito}, adaptada de Han~\cite{han2024battery}, es un Thevenin de segundo orden: capacitancia global $C_b$, una rama $R_p\|C_p$ que modela la difusión electroquímica, y resistencia serie $R_0$. El modelo implementado (ec.~\eqref{eq:bat_V}) conserva una rama $R_1\|C_1$ equivalente a la rama $R_p\|C_p$ de esta topología y la resistencia serie $R_0$; en lugar de la capacitancia global $C_b$, el SOC se calcula por conteo de Coulombs (ec.~\eqref{eq:bat_SOC}), $V_{oc}$ se interpola de tabla y $R_0$ es lineal en el SOC.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=0.85\linewidth]{Captura de pantalla 2026-09-14 045144.png}}
+\caption{Thevenin de segundo orden de referencia (adaptado de~\cite{han2024battery}). El modelo implementado conserva la rama $R_p\|C_p$ y reemplaza $C_b$ por el conteo de Coulombs.}
+\label{fig:bat_circuito}
+\end{figure}
+
+\subsection{Carga variable}
+\label{sec:modelo_carga}
+
+\textbf{Modelo.} A diferencia de los tres subsistemas anteriores, el nodo de carga (dirección I2C 0x13) no es una fuente sino un consumo: emula una carga de potencia constante alimentada desde el bus de 48\,V, siguiendo la metodología de emulación de perfiles de demanda de Hernández, Niño y Castillo~\cite{hernandez2026carga}. El nodo no integra un convertidor de conmutación. Reproduce, visto desde el bus, la respuesta en corriente de una carga electrónica programable. Tiene dos escenarios, residencial e industrial, que el SCADA selecciona por comando, y ambos recorren un perfil de demanda de 24\,h comprimido en el día de simulación de 360\,s (Sección~\ref{sec:reloj}).
+
+\textbf{Perfil de demanda.} La demanda de cada escenario se define por interpolación lineal, periódica en 24\,h, entre 24 nodos horarios $(h_i, p_{u,i})$ (Tabla~\ref{tab:carga_perfiles}). El perfil residencial tiene madrugada baja, un pico moderado a las 7\,h, un valle de tarde y su máximo a las 20--21\,h. El industrial tiene un pico de arranque a las 6\,h, una meseta alta hasta las 22\,h (dos turnos) y una base mínima de noche.
+\begin{equation}
+\label{eq:load_pu}
+p_u(h) = p_{u,i} + \frac{h-h_i}{h_{i+1}-h_i}\left(p_{u,i+1}-p_{u,i}\right), \quad h\in[h_i,h_{i+1}],
+\end{equation}
+A $p_u$ se le suma ruido gaussiano de desviación estándar 1.1\,\% de $P_{max}$, renovado cada 100\,ms para introducir variabilidad estocástica en la demanda, en línea con la referencia, y el resultado se satura en $[0.02,\,1]$. La potencia del perfil resulta
+\begin{equation}
+\label{eq:load_Pperfil}
+P_{perfil}(t) = p_u(h(t))\cdot P_{max}, \qquad P_{max}=150\,\text{W}.
+\end{equation}
+
+
+\begin{table}[H]
+\caption{Nodos horarios de los perfiles de la carga: potencia en por unidad ($p_u$) y factor de potencia ($FP$)}
+\label{tab:carga_perfiles}
+\centering
+\scriptsize
+\setlength{\tabcolsep}{2.2pt}
+\begin{tabular}{|c|cc|cc||c|cc|cc|}
+\hline
+ & \multicolumn{2}{c|}{$p_u$} & \multicolumn{2}{c||}{$FP$} & & \multicolumn{2}{c|}{$p_u$} & \multicolumn{2}{c|}{$FP$} \\
+$h$ & Res. & Ind. & Res. & Ind. & $h$ & Res. & Ind. & Res. & Ind. \\
+\hline
+0 & .30 & .18 & .88 & .90 & 12 & .36 & .80 & .92 & .90 \\
+1 & .26 & .16 & .89 & .90 & 13 & .35 & .84 & .92 & .90 \\
+2 & .23 & .15 & .90 & .90 & 14 & .30 & .86 & .91 & .90 \\
+3 & .21 & .15 & .90 & .90 & 15 & .28 & .85 & .91 & .90 \\
+4 & .21 & .16 & .90 & .90 & 16 & .30 & .84 & .90 & .90 \\
+5 & .24 & .30 & .92 & .85 & 17 & .40 & .83 & .89 & .90 \\
+6 & .38 & 1.00 & .94 & .70 & 18 & .58 & .85 & .87 & .90 \\
+7 & .62 & .88 & .95 & .78 & 19 & .78 & .84 & .86 & .90 \\
+8 & .52 & .84 & .95 & .85 & 20 & 1.00 & .82 & .85 & .90 \\
+9 & .40 & .86 & .94 & .88 & 21 & .98 & .80 & .85 & .90 \\
+10 & .34 & .85 & .93 & .90 & 22 & .70 & .78 & .86 & .90 \\
+11 & .32 & .87 & .92 & .90 & 23 & .45 & .30 & .87 & .90 \\
+\hline
+\end{tabular}
+\end{table}
+
+\textbf{Modos de operación.} La potencia que realmente consume la carga es el perfil multiplicado por un nivel permitido $\lambda\in[0,1]$,
+\begin{equation}
+\label{eq:load_P}
+P(t) = \lambda(t)\cdot P_{perfil}(t),
+\end{equation}
+con $\lambda=1$ en modo normal y un tope $\lambda_{max}$ fijado por el SCADA en modo reducido. En modo seguro, que se activa por comando o si el gateway deja de enviar su señal de vida, $\lambda=\min\{1,\,\max(0.20,\,10\,\text{W}/P_{perfil})\}$: el 20\,\% del perfil, con un piso de 10\,W que mantiene las cargas esenciales cuando el perfil está en su valle. El nivel cambia en rampa de 50\,\% por segundo y no como escalón.
+
+\textbf{Factor de potencia, rendimiento y corriente.} El factor de potencia no es constante. Se define con los mismos nodos horarios y la misma interpolación que la demanda (Tabla~\ref{tab:carga_perfiles}). En el escenario industrial cae a 0.70 durante el arranque de motores hacia las 6\,h y luego se mantiene en 0.90. En el residencial es más bajo de noche (0.85 hacia las 20--21\,h) y más alto en la mañana (0.95 hacia las 7--8\,h). El factor de potencia se publica junto con la telemetría de la carga. Un factor de potencia bajo aumenta la corriente del lado AC del inversor que alimenta la carga y sus pérdidas, lo que se refleja en el bus DC mediante un rendimiento que depende del factor de potencia, como se plantea en la referencia~\cite{hernandez2026carga},
+\begin{equation}
+\label{eq:load_eta}
+\eta(FP) = 0.96 - 0.30\,(1-FP)^2.
+\end{equation}
+Como la carga es de potencia constante, la corriente que toma del bus aumenta cuando la tensión del bus baja,
+\begin{equation}
+\label{eq:load_I}
+I_{dc}(t) = \frac{P(t)}{\eta(FP)\,V_{bus}}.
+\end{equation}
+La carga no regula el bus: $V_{bus}$ lo forma la batería y el gateway se lo comunica a la carga, que asume 48\,V si deja de recibir ese valor durante 3\,s. Como protección local de subtensión, la carga se abre por debajo de 40\,V y se reconecta por encima de 44\,V.
+
+Finalmente, la dinámica del emulador es la de una carga electrónica programable: la consigna $I_{dc}$ pasa por un limitador de pendiente,
+\begin{equation}
+\label{eq:load_slew}
+\left|\frac{di}{dt}\right| \le 0.5\ \text{A/ms},
+\end{equation}
+y luego por un filtro de primer orden de constante de tiempo 0.2\,ms. A la corriente resultante $i_{load}$ se suma la del capacitor de entrada ($C_{in}=47\,\mu$F, con la tensión del bus filtrada con constante de tiempo de 0.5\,ms), de modo que la corriente que ve el bus es $i_{in}=i_{load}+C_{in}\,dv/dt$.
+La secuencia de arranque en negro (\emph{Black Start}) ya no forma parte del nodo de carga. La ejecuta el SCADA como una secuencia entre subsistemas (Sección~\ref{sec:scada}), inspirada en el arranque en frío del SCADA de referencia~\cite{alvarez2026scada}, donde la batería y el PV energizan primero el bus y la carga se conecta al final de forma gradual, no abrupta.
+
+\textbf{Caracterización.} La Fig.~\ref{fig:carga_industrial} presenta el escenario industrial completo sobre las 24\,h que representa (comprimidas en los 360\,s del día simulado), con el perfil de potencia y el factor de potencia arriba, y la corriente que toma del bus y el rendimiento del inversor abajo. Hacia la hora 6 coinciden el pico de demanda (150\,W) y la caída del factor de potencia a 0.70, lo que baja el rendimiento a 93.3\,\% y hace que la corriente suba más que la potencia. Se muestra el perfil sin ruido y con el bus en 48\,V. A esta escala de tiempo, el limitador de pendiente y el filtro de la corriente son demasiado rápidos para verse.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{fig_carga_industrial.png}}
+\caption{Escenario industrial: potencia y factor de potencia (arriba), corriente en el bus DC y rendimiento del inversor (abajo), con $V_{bus}=48$\,V, en función de la hora simulada.}
+\label{fig:carga_industrial}
+\end{figure}
+
+
+
+
+\textbf{Circuito equivalente.} La Fig.~\ref{fig:carga_circuito_ref}, adaptada de Rodríguez-Licea \emph{et al.}~\cite{rodriguezlicea2018cpl}, muestra la topología de referencia de un convertidor buck ($M_1$, $D_1$, $L(t)$, $C(t)$) alimentando una carga de potencia constante, modelada como $R(t)=V_o^2(t)/P$. El modelo implementado no integra esa etapa. En régimen permanente, un buck con lazo de corriente impone en el bus la corriente $I_{dc}$ de la carga, y eso es lo que reproduce el emulador mediante el limitador de pendiente y el filtro de primer orden (Fig.~\ref{fig:carga_control_loop}). Igual que en los demás subsistemas, esta etapa de potencia aún no existe físicamente (Sección~\ref{sec:conversor_interno}), y la potencia $P$ de la carga equivalente es la $P(t)$ calculada por escenario en la Sección~\ref{sec:modelo_carga}, en vez de un valor constante fijo.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=0.85\linewidth]{Captura de pantalla 2026-09-18 224509.png}}
+\caption{Convertidor buck con carga de potencia constante $R(t)=V_o^2(t)/P$ (adaptado de~\cite{rodriguezlicea2018cpl}). Topología de referencia de la carga; el modelo implementado emula su respuesta de corriente.}
+\label{fig:carga_circuito_ref}
+\end{figure}
+
+\textbf{Convertidor asociado.} La carga no integra un convertidor de conmutación, pero publica la misma trama del convertidor universal (Sección~\ref{sec:interfaz_convertidor}) para que el SCADA la lea igual que a los demás subsistemas. En ella, la tensión de entrada y la de bus son la tensión de bus, la corriente de bus es negativa porque la carga absorbe, y el campo de ciclo de trabajo informa el nivel $\lambda$ aplicado, no un ciclo de trabajo.
+
+\section{Convertidor Universal y Arquitectura Digital}
+\label{app:conv}
+\label{sec:convertidor_universal}
+
+\subsection{Del convertidor por subsistema al convertidor universal}
+
+En las primeras versiones del proyecto cada subsistema tenía su propio modelo de convertidor, con una relación ciclo de trabajo--tensión distinta y, en el caso del PV, su propia señal PWM. En la versión actual esa distinción desaparece: los cuatro subsistemas se exponen al SCADA con la misma interfaz, y el PV, la turbina y la batería integran el mismo modelo matemático del convertidor. La carga lo representa por su respuesta de corriente (Sección~\ref{sec:modelo_carga}). Lo que cambia de un subsistema a otro es la fuente que alimenta al convertidor y el lazo de control que decide su ciclo de trabajo (Sección~\ref{sec:control}), no el convertidor en sí.
+
+Esta idea sigue la arquitectura de bloque modular de electrónica de potencia (\emph{power electronics building block}, PEBB) de Ontibón \emph{et al.}~\cite{ontibon2025pebb}, en la que un mismo medio puente de dos semiconductores se reconfigura como buck, boost o bidireccional según el semiconductor que se module. El subgrupo de electrónica de potencia del curso construyó y validó ese bloque con IGBT~\cite{pinto2026peb}, y de ahí se toma el modelo matemático de la Sección~\ref{sec:modelo_convertidores}. Hoy el convertidor universal se emula por software dentro de cada STM32 (Sección~\ref{sec:conversor_interno}). Como su interfaz está definida de forma común, en una integración física futura el bloque de potencia real podría reemplazar a la emulación sin cambiar la trama ni el SCADA.
+
+\subsection{Interfaz estándar del convertidor}
+\label{sec:interfaz_convertidor}
+
+Para que el SCADA vea cualquier convertidor de la misma forma, cada STM32 publica el estado del suyo con una trama común de 10 bytes, definida una sola vez en el firmware (\texttt{conv\_link.h}) y reutilizada por los cuatro subsistemas. La Tabla~\ref{tab:trama_convertidor} resume sus campos. Esta trama se lee junto con la de la planta (\texttt{telemetry\_t}) en la primera dirección I2C de cada placa, de modo que cada lectura entrega 20 bytes (Sección~\ref{sec:digital}).
+
+\begin{table}[H]
+\caption{Trama estándar del convertidor universal}
+\label{tab:trama_convertidor}
+\centering
+\scriptsize
+\begin{tabular}{|l|p{5.4cm}|}
+\hline
+\textbf{Campo} & \textbf{Contenido} \\
+\hline
+$V_{in}$ & Tensión del lado de la fuente: panel, salida del rectificador o pack de baterías (en la carga, el bus) \\
+\hline
+$V_{bus}$ & Tensión del bus de 48\,V que ve el convertidor \\
+\hline
+$I_{bus}$ & Corriente hacia el bus: positiva si el subsistema entrega y negativa si absorbe \\
+\hline
+$D$ & Ciclo de trabajo aplicado (en la carga, el nivel aplicado respecto al pedido por el perfil) \\
+\hline
+Banderas & Saturación de $D$, límite activo, modo seguro, inactivo, protección activa e interrupción de control fuera de tiempo \\
+\hline
+\end{tabular}
+\end{table}
+
+El modo de operación y las consignas que recibe cada subsistema también son comunes: tres modos (normal, limitado y seguro) y un tope asociado al modo limitado, que el SCADA envía por la segunda dirección I2C de la placa. Lo único específico de cada subsistema es el lazo de control que hay detrás (Sección~\ref{sec:control}): MPPT en el PV y en la turbina, regulación del bus en la batería y seguimiento de la demanda en la carga.
+
+\subsection{Modelo matemático común de los convertidores}
+\label{sec:modelo_convertidores}
+
+Los cuatro subsistemas comparten, como modelo matemático de referencia para su etapa de conversión, el mismo bloque de dos semiconductores (PEBB) descrito por Ontibón \emph{et al.}~\cite{ontibon2025pebb} y validado experimentalmente por el subgrupo de electrónica de potencia del curso~\cite{pinto2026peb}: un interruptor principal $S_1$ y un rectificador síncrono complementario $S_2$, con un tiempo muerto $t_d$ entre ambos disparos para evitar \emph{shoot-through},
+\begin{equation}
+D_1 + D_2 = 1 - \frac{2t_d}{T_s}.
+\end{equation}
+El modelo promediado en un periodo de conmutación, común a las topologías buck y boost que resultan de modular $S_1$ o $S_2$ respectivamente, es
+\begin{equation}
+L\frac{di_L}{dt} = D\cdot V_{alto} - V_{bajo}, \qquad C\frac{dV_{bajo}}{dt} = i_L - I_{carga}.
+\end{equation}
+Las relaciones estáticas de este modelo (régimen permanente, sin dinámica de inductor ni de capacitor) son las que relacionan el ciclo de trabajo con las tensiones de cada subsistema, ya que ningún subsistema cuenta todavía con una etapa de potencia física y, por lo tanto, no hay transitorios de conmutación reales que medir:
+\begin{equation}
+V_{bajo} = D\cdot V_{alto} \ \text{(buck, } S_1 \text{ modula)}.
+\end{equation}
+\begin{equation}
+V_{alto} = \frac{V_{bajo}}{1-D} \ \text{(boost, } S_2 \text{ modula)}.
+\end{equation}
+Dentro de cada STM32 el convertidor se integra con el modelo promediado de la ecuación anterior, incluyendo la resistencia del inductor, en una interrupción periódica de 10\,kHz (temporizador TIM6), de modo que la corriente del inductor y la tensión de entrada tienen dinámica propia y las pérdidas del convertidor aparecen en la telemetría. % [VERIFICAR] la ISR a 10 kHz esta verificada en la turbina y la carga (main.c, app_wind.c, app_load.c); confirmar en PV y bateria.
+Este modelo del convertidor se ejecuta en la misma STM32 que el modelo de la planta y el lazo de control del subsistema (Sección~\ref{sec:conversor_interno}), de modo que el ciclo de trabajo es una variable interna que el control calcula y actualiza sin intercambio de señales entre placas.
+
+La Tabla~\ref{tab:convertidores} aplica esta relación a cada subsistema, identificando la topología, el semiconductor modulado y la relación estática ciclo de trabajo--tensión resultante. La batería es el único caso bidireccional. Como la tensión del pack (del orden de 38\,V) es menor que la del bus (48\,V), el convertidor opera en boost al entregar energía al bus (descarga) y en buck al absorberla (carga). Esta inversión del sentido de la potencia refleja el cambio de signo de la corriente del pack, positiva en descarga y negativa en carga, que reporta la telemetría de la batería (Sección~\ref{sec:modelo_bateria}).
+
+\begin{table}[H]
+\caption{Modelo de convertidor por subsistema (PEBB, dos semiconductores)}
+\label{tab:convertidores}
+\centering
+\scriptsize
+\begin{tabular}{|p{1.3cm}|p{2.5cm}|p{2.7cm}|}
+\hline
+\textbf{Subsist.} & \textbf{Topología / interruptor} & \textbf{Relación estática} \\
+\hline
+PV & Boost ($S_2$ modula) & $V_{bus}=\dfrac{V_{pv}}{1-D_{pv}}$ \\
+\hline
+Eólica & Boost (igual forma) & $V_{bus}=\dfrac{V_{eol}}{1-D_{eol}}$ \\
+\hline
+Batería (descarga) & Boost ($S_2$ modula) & $V_{bus}=\dfrac{V_{bat}}{1-D_{bat}}$ \\
+\hline
+Batería (carga) & Buck ($S_1$ modula) & $V_{bat}=D_{bat}V_{bus}$ \\
+\hline
+Carga & Emulador de corriente (sin conmutación) & $I_{dc}=\dfrac{\lambda P_{perfil}}{\eta(FP)\,V_{bus}}$ \\
+\hline
+\end{tabular}
+\end{table}
+
+En el PV, la turbina y la batería, cada STM32 integra el modelo promediado del convertidor (inductor y capacitor, con la resistencia del inductor) junto con la fuente del subsistema, en la misma interrupción de 10\,kHz en que corre el lazo de control. El ciclo de trabajo es la salida de ese lazo, y la relación de la fila correspondiente de la Tabla~\ref{tab:convertidores} es la que se cumple en régimen permanente. En la turbina, por ejemplo, el modelo usa $L=1$\,mH, $C=470\,\mu$F y $r_L=0.05\,\Omega$ con el bus fijo en 48\,V. % [VERIFICAR] L, C, rL del PV y de la bateria
+La carga no integra un convertidor: emula directamente la corriente (Sección~\ref{sec:modelo_carga}). Cada STM32 expone las variables del convertidor (tensión de entrada, tensión y corriente de bus, ciclo de trabajo y banderas de estado) por telemetría junto con las de la planta. En ningún caso existe una etapa de potencia física: el convertidor es un modelo en software dentro del microcontrolador.
+
+\section{Arquitectura Digital de las STM32 y del Bus I2C}
+\label{sec:arquitectura}
+
+Con los subsistemas y el convertidor ya definidos, esta sección describe cómo se aloja cada uno en su STM32 y cómo se conectan las cuatro placas con el gateway. Se presentan los elementos de firmware que se replicaron en todas las placas (Sección~\ref{sec:firmware_comun}), el bus I2C compartido (Sección~\ref{sec:digital}) y la forma en que el convertidor y el lazo de control conviven en la misma placa (Sección~\ref{sec:conversor_interno}).
+
+\subsection{Elementos comunes del firmware}
+\label{sec:firmware_comun}
+
+Se construyeron proyectos por cada subsistema (PV, turbina, batería, carga) en la plataforma de CubeMX. La cual se utilizó para configurar todos los parámetros necesarios para el funcionamiento electrónico de las STM32. Los parámetros, fueron los siguientes:
+
+\begin{itemize}
+\item \textbf{I2C1 configurado como esclavo} en CubeMX: dirección 16 (0x10) para PV, 17 (0x11) para la turbina, 18 (0x12) para la batería y 19 (0x13) para la carga, con \texttt{OwnAddress1} en 32, 34, 36 y 38 respectivamente (CubeMX realiza internamente el corrimiento de bit). Cada placa responde además en una segunda dirección (0x20 a 0x23) para el control y los comandos (Sección~\ref{sec:digital}).
+\item \textbf{Tramas empaquetadas de 10 bytes, con \emph{checksum} XOR}, idénticas byte a byte en las cuatro placas y en el gateway: planta (tensión en mV, corriente en mA con signo, potencia en mW con signo de 32 bits y \texttt{status}), convertidor (Sección~\ref{sec:interfaz_convertidor}), extras propios de cada subsistema y estado del control. La potencia se declara de 32 bits porque a 300\,W ya son 300\,000\,mW, valor que desborda un entero de 16 bits.
+\item Esclavo I2C atendido por interrupciones en modo escucha, mismo patrón en todos: la dirección de planta responde con las tramas de planta, convertidor y extras (hasta 30 bytes en una sola lectura) y la de control entrega su estado y recibe los comandos de 7 bytes.
+\item LED de \emph{heartbeat} en cada ciclo, para diagnóstico visual.
+\item Variable de entrada del modelo físico de cada subsistema (irradiancia en PV, velocidad de viento en la turbina, potencia neta que el gateway comunica a la batería, potencia demandada y factor de potencia en la carga) definida por software sobre el reloj común de simulación (Sección~\ref{sec:reloj}), sin depender de una señal de hardware externa.
+\end{itemize}
+
+Esta arquitectura común permitió que el gateway ESP32, ya validado para PV, integrara los demás subsistemas sin modificaciones de lógica. A nivel de hardware, sí fue necesario un ajuste al incorporar cada subsistema adicional: al compartir las cuatro placas un mismo bus fue necesario fijar un único par de resistencias de pull-up de 4.7\,k$\Omega$ a 3.3\,V para SDA y SCL (Sección~\ref{sec:digital}). % [VERIFICAR] antes decia una pull-up por STM; la Fig. del bus muestra un solo par.
+
+\subsection{Conexión del bus I2C compartido}
+\label{sec:digital}
+
+El bus I2C compartido conecta cuatro STM32 (esclavos, una por subsistema) con el gateway ESP32-S3 (maestro, a 100\,kHz). Cada STM32 aloja el modelo del subsistema, su convertidor y su lazo de control, y los expone en el bus mediante dos direcciones de esclavo: una de telemetría de la planta y el convertidor (0x10--0x13), y otra de estado del control y recepción de comandos (0x20--0x23), como resume la Tabla~\ref{tab:direcciones_i2c}. La Fig.~\ref{fig:pines} documenta la conexión a nivel de pin: SDA en \texttt{PB7} (\texttt{D4}) y SCL en \texttt{PB6} (\texttt{D5}) en cada STM32, SDA en \texttt{GPIO4} y SCL en \texttt{GPIO5} en el ESP32-S3, un único par de resistencias de pull-up de 4.7\,k$\Omega$ a 3.3\,V para todo el bus, y GND común entre las cinco tarjetas.
+
+\begin{table}[H]
+\caption{Direcciones I2C por subsistema}
+\label{tab:direcciones_i2c}
+\centering
+\footnotesize
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Subsistema} & \textbf{Telemetría (planta)} & \textbf{Control y comandos} \\
+\hline
+PV      & 0x10 & 0x20 \\
+\hline
+Eólica  & 0x11 & 0x21 \\
+\hline
+Batería & 0x12 & 0x22 \\
+\hline
+Carga   & 0x13 & 0x23 \\
+\hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=0.95\linewidth]{WhatsApp Image 2026-09-18 at 9.56.17 PM.jpeg}}
+\caption{Esquema digital de conexión del bus I2C compartido: las cuatro STM32 (PV, Eólica, Batería, Carga) y el gateway ESP32, con GND común entre las cinco tarjetas y un único par de resistencias de pull-up de 4.7\,k$\Omega$ al final del bus.}
+\label{fig:pines}
+\end{figure}
+
+\subsection{Convertidor y lazo de control en la misma STM32}
+\label{sec:conversor_interno}
+
+Es importante precisar qué representa exactamente el ``convertidor'' a nivel interno. El convertidor de dos semiconductores descrito en la Sección~\ref{sec:modelo_convertidores} está modelado por completo dentro del firmware de la STM32 de cada subsistema: es ahí donde, en cada paso de una interrupción de 10\,kHz, se integra el modelo del convertidor junto con el de la fuente y se calcula el ciclo de trabajo que entrega el lazo de control. En régimen permanente ese ciclo de trabajo toma el valor de la relación estática, por ejemplo $D_{pv}=1-V_{pv}/V_{bus}$ en el caso del PV. No existe todavía una etapa de potencia física (inductor, capacitor de salida, semiconductores de conmutación reales) asociada a ese convertidor; lo que hay es su simulación en software, dentro de la propia STM32. El lazo principal de cada placa publica la telemetría a 100\,Hz y actualiza el modelo lento de la fuente a 1\,kHz.
+
+El lazo de control del subsistema reside en esa misma placa. La ley de control (MPPT por Perturbar y Observar en el PV y la turbina, regulación del bus en la batería) lee directamente las variables internas del modelo y del convertidor, y actúa sobre el ciclo de trabajo sin necesidad de cablear ninguna señal entre placas ni de ceder la lectura a un segundo microcontrolador. El gateway interviene solo como supervisor: lee el estado del control por la segunda dirección I2C (0x20--0x23) y le envía comandos de modo (MPPT, limitado o seguro) y, cuando corresponde, un tope de potencia, sin sustituir al lazo local. Esta separación entre control primario, local a cada STM32, y control supervisorio, a cargo del gateway, es la que se valida en la Sección~\ref{sec:validacion}. El lazo y su estado se describen en la Sección~\ref{sec:control}.
+
+\section{Lazos de Control Locales}
+\label{app:control}
+\label{sec:control}
+
+Cada subsistema decide en tiempo de ejecución qué ciclo de trabajo aplicar a su convertidor (Sección~\ref{sec:modelo_convertidores}) mediante un lazo de control local, que corre en la misma STM32 que el modelo de la planta. Esta sección documenta primero cómo se organizó el control entre placas y después el lazo de cada subsistema.
+
+\subsection{Arquitectura de control: de dos STM32 a una por subsistema}
+\label{sec:control_arquitectura}
+
+El patrón de control inicial separaba, para cada subsistema, la placa que sostiene el modelo físico y el convertidor (Secciones~\ref{sec:subsistemas} y~\ref{sec:convertidor_universal}) de una segunda placa dedicada exclusivamente a la ley de control. Esta última actuaba como maestro I2C, leía la telemetría de la primera, ejecutaba su ley de control específica (Perturbar y Observar o P\&O para el MPPT del PV, un PI de regulación de tensión para la batería) y le devolvía un ciclo de trabajo mediante un segundo struct compartido, \texttt{comando\_t} (un \texttt{float} de \texttt{duty} más un byte de checksum XOR). Ese patrón se probó en el PV, con compilación y flasheo exitosos de ambos proyectos, pero al conectar las dos placas con el cableado de control el bus I2C compartido dejaba de responder, incluso con el SDA y el SCL de la placa de control desconectados del gateway. La causa raíz no se encontró.
+
+Por esa razón, y para no frenar el resto del proyecto, se consolidaron el modelo de la planta, el convertidor y el control en una sola STM32 por subsistema. Esa placa responde en dos direcciones I2C (Tabla~\ref{tab:direcciones_i2c}), una para la planta y el convertidor y otra para el control y los comandos, y el ciclo de trabajo pasa a ser una variable interna, sin señales entre placas. La separación en dos placas queda como trabajo futuro: como la trama del convertidor está definida de forma común (Sección~\ref{sec:interfaz_convertidor}), mover el convertidor a otra placa, o a un convertidor físico, no exigiría cambiar el SCADA.
+
+\subsection{Lazos de control de los subsistemas}
+
+Cada subsistema corre en una sola STM32F303K8 con dos direcciones I2C: en una se leen la planta y el convertidor (tensión, corriente y ciclo de trabajo) y en la otra el control y los comandos del SCADA. El firmware con el convertidor y su lazo de control ya está cargado en las cuatro placas. El PV es el único con mediciones del lazo en hardware; la eólica, la batería y la carga se verificaron con simulación en PC y publican telemetría en vivo, pero el desempeño de sus lazos en hardware todavía no está medido. Todos los diagramas siguen la convención de la Fig.~\ref{fig:pv_control_loop}: un driver por transistor y PWM complementario con tiempo muerto $t_d$, salvo en la carga, que no modela etapa de conmutación.
+
+\textbf{PV.} El control tiene dos niveles. Cada 20\,ms, con la tensión y la corriente promediadas en esa ventana, un MPPT de Perturbar y Observar actualiza la referencia de tensión del panel,
+\begin{equation}
+\label{eq:pv_po}
+V_{ref}[k+1]=\mathrm{sat}\big(V_{ref}[k]+\sigma[k]\,\Delta V\big),
+\end{equation}
+\begin{equation}
+\label{eq:pv_sigma}
+\sigma[k]=\begin{cases}
+\ \ \sigma[k-1], & p[k]\ge p[k-1]\\
+-\sigma[k-1], & p[k]<p[k-1]
+\end{cases}
+\end{equation}
+con $\Delta V=0.2$\,V y $V_{ref}\in[12,\,23.8]$\,V. Cada 100\,$\mu$s un PI posicional con prealimentación sigue esa referencia,
+\begin{equation}
+\label{eq:pv_ff}
+D_{ff}=1-\frac{V_{ref}}{V_{bus}},
+\end{equation}
+\begin{equation}
+\label{eq:pv_pi}
+\begin{aligned}
+e&=v_{pv}-V_{ref},\\
+u&=D_{ff}+k_p\,e+x,\\
+D&=\mathrm{sat}(u,\,D_{min},\,D_{max}),
+\end{aligned}
+\end{equation}
+\begin{equation}
+\label{eq:pv_int}
+\begin{aligned}
+x[k+1]=\mathrm{sat}_{\pm0.3}\big(&x[k]\\
+&+k_i\,T_s\,e[k]\big),
+\end{aligned}
+\end{equation}
+donde la integral solo se actualiza si el ciclo no está saturado o si el error lo saca de la saturación (integración condicional como antiwindup). Se usa $e=v_{pv}-V_{ref}$ y no al revés porque en un \emph{boost} subir $D$ baja la tensión de entrada. Los valores se resumen en la Tabla~\ref{tab:pi_pv} y el lazo en la Fig.~\ref{fig:pv_control_loop}.
+
+Por comando del SCADA el nodo puede operar limitado o en modo seguro. En modo limitado, cuando $p$ supera el $95\,\%$ de $P_{max}$ el P\&O se reemplaza por
+\begin{equation}
+\label{eq:pv_lim}
+\Delta V=\mathrm{sat}_{\pm0.2\,\mathrm{V}}\big(g\,(p-P_{max})\big),
+\end{equation}
+con $g=0.01$\,V/W, que mueve $V_{ref}$ hacia mayor tensión que el MPP cuando se excede el tope. En modo seguro $V_{ref}$ se congela. Con $G=1000$\,W/m$^2$ en modo MPPT se midió $V_{pv}\approx18$\,V, $I_{pv}\approx4.9$\,A y $P\approx88.6$\,W, con un ciclo de trabajo de $0.63$, que concuerda con $D\approx1-V_{pv}/V_{bus}$ para un bus de 48\,V. La referencia oscila entre 17.8 y 18.2\,V, que es la oscilación normal del P\&O alrededor del punto de máxima potencia.
+
+\textbf{Corrección S14: P\&O de noche.} La ec.~\eqref{eq:pv_sigma} solo invierte el sentido cuando $p$ baja. De noche $p=0$, la condición nunca se cumple y $V_{ref}$ avanzaba hasta su límite superior (23.8\,V $>V_{oc}\approx22.3$\,V), con el panel en circuito abierto al amanecer. Se añadió (i) un estacionamiento: si $p<0.5$\,W, $V_{ref}$ vuelve a su valor inicial y $\sigma=-1$, y (ii) un rebote en límites: si $V_{ref}$ toca $V_{ref,min}$ o $V_{ref,max}$ se invierte $\sigma$. El cambio está en \texttt{pv\_control.c} y se verificó en simulación y en hardware (Sección~\ref{sec:p0}).
+
+\begin{table}[H]
+\caption{Parámetros del lazo de tensión del PV y de la turbina (mismo módulo \texttt{pv\_control})}
+\label{tab:pi_pv}
+\centering
+\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Parámetro} & \textbf{PV} & \textbf{Turbina} \\
+\hline
+$k_p$ [duty/V] & 0.004 & 0.02 \\ \hline
+$k_i$ [duty/(V$\cdot$s)] & 4 & 2 \\ \hline
+$D_{min}$--$D_{max}$ & 0.35--0.85 & 0.04--0.92 \\ \hline
+$V_{ref}$ [V] & 12--23.8 & 4--$\min(44,\,0.9V_{oc})$ \\ \hline
+$\Delta V$ del P\&O [V] & 0.2 & 0.2 \\ \hline
+Períodos P\&O / PI & 20\,ms / 100\,$\mu$s & 20\,ms / 100\,$\mu$s \\ \hline
+Ganancia $g$ [V/W] & 0.01 & $-0.05$ \\ \hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{fig_pv_control_loop.png}}
+\caption{Lazo del PV: P\&O, PI con prealimentación y convertidor boost con driver por transistor y PWM complementario.}
+\label{fig:pv_control_loop}
+\end{figure}
+
+\textbf{Turbina.} Usa la misma topología boost del PV, alimentada por el modelo Thevenin del generador con su rectificador, y reutiliza el mismo módulo de control (\texttt{pv\_control}), de modo que también persigue el punto de máxima potencia. Las ecs.~\eqref{eq:pv_po}--\eqref{eq:pv_int} son las mismas, con los parámetros de la Tabla~\ref{tab:pi_pv}. La referencia se limita entre 4\,V y una fracción de $V_{oc}$ (arranca en $\approx0.9\,V_{oc}$ para limitar el pico de corriente al conectar), y como el P\&O solo invierte el sentido cuando la potencia baja, el supervisor lo fuerza hacia el interior del rango si queda pegado a un límite. En modo limitado, el tope $P_{max}$ del SCADA actúa por el lado de baja tensión de la curva $P$--$V$. 
+
+\textbf{Batería.} El convertidor bidireccional es el que forma el bus de 48\,V. El lazo exterior es un PI de tensión de bus y el interior un PI de corriente que impone los límites de carga y descarga, con $I_{nom}=7.0$\,A (Sección~\ref{sec:modelo_bateria}) y reducción de esos límites según SOC, tensión y temperatura. El lazo exterior usa $k_p=3.2$\,A/V y $k_i=1000$\,A/(V$\cdot$s) y el interior $k_p=0.04$\,duty/A y $k_i=20$\,duty/(A$\cdot$s), ambos con antiwindup por retrocálculo y prealimentación $D_{ff}=1-V_{pack}/V_{bus}$; el ciclo queda entre 0.01 y 0.98. Al ser ambos interruptores activos, el sentido de la potencia se invierte solo según la relación entre $V_{bat}$ y $D_{bat}\cdot V_{bus}$ (Sección~\ref{sec:modelo_convertidores}).
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{fig_bateria_control_loop.png}}
+\caption{Lazo de la batería: regulación de $V_{bus}$ sobre el convertidor bidireccional (se muestra el lazo exterior de tensión).}
+\label{fig:bateria_control_loop}
+\end{figure}
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{fig_turbina_control_loop.png}}
+\caption{Lazo de la turbina sobre el convertidor boost.}
+\label{fig:turbina_control_loop}
+\end{figure}
+
+\textbf{Carga.} Aquí no se regula una tensión ni hay un lazo cerrado de corriente. El objetivo es que la corriente consumida siga el perfil de demanda de la Sección~\ref{sec:modelo_carga}, y lo hace en lazo abierto: la consigna $I_{dc}$ de la ec.~\eqref{eq:load_I}, calculada a partir del perfil del escenario, del nivel $\lambda$ y de la tensión de bus que comunica el gateway, pasa por el limitador de pendiente y el filtro de primer orden del emulador (Fig.~\ref{fig:carga_control_loop}). No hay PI ni modulador, porque no se modela la conmutación, y la protección de subtensión anula la consigna cuando el bus cae por debajo de 40\,V. Visto desde el bus, esto reproduce la carga electrónica con lazo de corriente de la referencia.
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{fig_carga_control_loop.png}}
+\caption{Emulador de corriente de la carga: consigna $I_{dc}$, limitador de pendiente, filtro de primer orden y capacitor de entrada.}
+\label{fig:carga_control_loop}
+\end{figure}
+
+\section{Reglas del SCADA y Comunicación}
+\label{app:scada}
+\label{sec:scada}
+
+\subsection{Rol del SCADA y acoplamiento entre subsistemas}
+
+El control rápido de cada subsistema es local (Sección~\ref{sec:control}). El SCADA es el nivel supervisorio lento y corre en el gateway ESP32-S3, una vez por segundo, sobre la misma lectura I2C que alimenta MQTT. No tiene un lazo continuo ni filtros: es una máquina de estados con histéresis y tiempos mínimos, y solo manda a cada STM un modo (normal, limitado o seguro) y, cuando corresponde, un tope de potencia o un nivel de carga.
+
+Además de supervisar, el gateway acopla los subsistemas, que por sí solos no se ven entre sí. En cada ciclo calcula la potencia neta del resto de la microrred, $P_{net}=P_{pv}+P_{eol}-P_{carga}$, acotada a $\pm327$\,W, y se la envía a la batería, que forma el bus. A la carga le envía la tensión de bus medida por el convertidor de la batería, que es la única placa que la mide, y a las demás les refresca la señal de vida. Si una placa pasa 5\,s sin comandos, entra en modo seguro por su cuenta.
+
+La referencia de operación es una banda de $48\,\mathrm{V}\pm5\,\%$ (45.6 a 50.4\,V). Como cada STM genera su propio perfil diario sobre el reloj común (Sección~\ref{sec:reloj}), el gateway solo lleva un reloj para etiquetar la hora, que se alinea por comando.
+
+\subsection{Estados y reglas supervisorias}
+
+Las reglas del SCADA se numeran de S0 a S9. La Tabla~\ref{tab:estados_scada} resume los estados y el texto desarrolla las reglas con los valores del firmware.
+
+\begin{table}[H]
+\caption{Estados del SCADA y regla que los identifica}
+\label{tab:estados_scada}
+\centering
+\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|l|c|p{3.3cm}|}
+\hline
+\textbf{Estado} & \textbf{Regla} & \textbf{Condición} \\
+\hline
+NORMAL & S0 & Bus en banda y sin topes de generación \\ \hline
+EXCEDENTE & S1--S4 & Hay algún tope de potencia activo en PV o eólica \\ \hline
+DEFICIT & S5 & Batería descargando y bus bajo, de forma sostenida \\ \hline
+DEFICIT con deslastre & S6, S7 & SOC bajo: carga por niveles (60, 40 y 25\,\%) \\ \hline
+SEGURO & S8 & Batería sin respuesta \\ \hline
+ARRANQUE & S9 & Secuencia de arranque en negro en curso \\ \hline
+\end{tabular}
+\end{table}
+
+\textbf{Excedente (S1--S4).} El bus sube sobre 50.4\,V cuando la generación supera lo que consume la carga más lo que la batería puede absorber. Si esto se sostiene durante dos ciclos consecutivos, la regla S1 entra a EXCEDENTE y fija un tope de potencia a los generadores. El recorte inicial es el mayor entre el escalón proporcional y el excedente estimado, $P_{gen}-P_{carga}-I_{ch,max}V_{bat}$, con un máximo de 120\,W. Los topes son absolutos y por generador: se recorta primero la PV hasta un piso de 15\,W, y solo cuando ya está en su piso se recorta la eólica, cuyo piso físico es 13.4\,W por el límite de $D_{max}$. Mientras el bus siga alto, la regla S2 agrega un escalón de 5\,W cada vez que pasan al menos 6\,s desde el último cambio, o sin esperar esos 6\,s si el bus supera 53\,V. En S14 el escalón es proporcional al exceso, $\Delta P=\min\{30,\,5+10\,(V_{bus}-50.4)\}$\,W (en S13 era de 5\,W fijos). Cuando la batería pasa a descargar más de 5\,W durante tres ciclos, la regla S3 suelta un escalón, empezando por la eólica, que fue la última en limitarse. Un tope se elimina cuando queda más de 10\,W por encima de la potencia medida o cuando llega a 100\,W, y la regla S4 devuelve los generadores a MPPT al soltar el último. Con esto el recorte no oscila: el escalón es pequeño y el tiempo mínimo supera la dinámica del lazo local.
+
+\textbf{Déficit y deslastre (S5--S7).} Hay déficit cuando la batería descarga más de 5\,W o el bus cae bajo 45.6\,V, durante tres ciclos seguidos (S5). El deslastre de S14 es escalonado: la regla S6 lleva la carga al 60, 40 y 25\,\% de su perfil cuando el SOC baja de 30, 25 y 20\,\%, y S7 restaura un nivel cuando el SOC supera 40, 35 y 30\,\% (histéresis de 10 puntos), con un tiempo mínimo de 10\,s entre cambios, porque el SOC evoluciona $60\times$ más rápido que el reloj de simulación. En S13 el deslastre tenía un único nivel (60\,\% con SOC $<20$\,\% y restauración sobre 30\,\%).
+
+\textbf{Modo seguro (S8).} Si la batería no responde, no hay bus que supervisar, por lo que el SCADA suspende el recorte, libera los topes y deja a cada subsistema con su control local.
+
+\textbf{Arranque en negro (S9).} Por comando, el gateway ejecuta una secuencia de cuatro pasos de 6\,s: todo el sistema se pone en modo seguro (bus caído), la batería forma el bus, el PV y la eólica reconectan en MPPT y, por último, se reconecta la carga, tras lo cual se vuelve al estado NORMAL. El bus caído es una emulación: en modo seguro los generadores no se desconectan, la carga baja a su perfil mínimo y la batería limita su corriente a $\pm2$\,A (Sección~\ref{sec:validacion}).
+
+\subsection{Reglas locales por subsistema}
+
+Cada STM reporta además qué regla local está activa, que el gateway deduce del modo y de las banderas de la trama del convertidor y publica junto con las protecciones de saturación. La Tabla~\ref{tab:reglas_locales} las resume. En la eólica, E5 y E6 coinciden con los estados de calma y sobrevelocidad de la Sección~\ref{sec:modelo_eolica}, y en la batería B5 agrupa las protecciones por SOC y por tensión del pack de la Sección~\ref{sec:modelo_bateria}.
+
+\begin{table}[H]
+\caption{Reglas locales publicadas por cada subsistema}
+\label{tab:reglas_locales}
+\centering
+\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|l|p{6.0cm}|}
+\hline
+\textbf{Sub.} & \textbf{Reglas} \\
+\hline
+PV & R1 MPPT; R2 limitado, tope aún no alcanzado; R3 limitado, recorte activo; R4 seguro; R5 falla de la interrupción de control \\ \hline
+Eólica & E1 MPPT; E2--E3 limitado (sin y con recorte); E4 seguro; E5 sin viento; E6 sobreviento; E7 falla \\ \hline
+Batería & B1 regula el bus a 48\,V; B2 carga limitada; B3 descarga limitada; B4 seguro; B5 protección por SOC o tensión del pack; B6 bus fuera de banda; B7 falla \\ \hline
+Carga & C1 sigue su perfil; C2 reducida por el SCADA; C3 perfil mínimo (seguro); C4 abierta por subtensión; C5 falla \\ \hline
+\end{tabular}
+\end{table}
+
+\subsection{Comunicación y visualización}
+
+El gateway publica por MQTT, para cada subsistema, la telemetría de planta (\texttt{microred/<s>}), del convertidor (\texttt{microred/<s>\_conv}) y de los extras (\texttt{microred/<s>\_extra}), y el estado del control, la regla local activa y la disponibilidad (\texttt{microred\_ctrl/<s>}, \texttt{\_reglas} y \texttt{\_online}). El estado del SCADA, con la hora, la regla, el escenario de carga y los topes vigentes, sale por \texttt{microred\_ctrl/estado}, y los eventos (cambios de regla, escenarios, arranque en negro) por \texttt{microred\_ctrl/sistema}. Los comandos entran por \texttt{microred\_cmd/<s>} y \texttt{microred\_cmd/sistema}, y un subsistema se marca sin respuesta tras tres lecturas fallidas seguidas.
+
+El tablero es un script de Python que se suscribe a esos topics y grafica sobre una ventana de dos días simulados la tensión del bus con su banda, las potencias de los cuatro subsistemas, el SOC y las tensiones de planta, con la noche y la carga industrial sombreadas y una línea de texto con el estado, la regla y el último evento. En contraste con la arquitectura del curso~\cite{alvarez2026scada}, que usa un PLC con Modbus TCP, aquí el gateway y MQTT cumplen el papel de maestro y de bus de datos (Sección~\ref{sec:comparacion}).
+
+\section{Detalle de la Validación Experimental de S13}
+\label{sec:validacion}\label{app:s13}
+
+Esta sección conserva el detalle de los experimentos de S13, ejecutados con el firmware anterior (P\&O sin estacionamiento nocturno, recorte de 5\,W fijo y deslastre de un solo nivel). Los resultados de S14 están en el cuerpo del documento. La validación se hizo con el sistema integrado y su SCADA activo. Cada STM32 genera su propio perfil diario comprimido, de modo que un día simulado dura 360\,s (1\,h $=$ 15\,s). La tensión de bus que supervisa el SCADA es la que reporta el convertidor de la batería, y la banda de operación es $48\,\text{V}\pm5\,\%$ (45.6--50.4\,V). Se presentan cinco experimentos (Tabla~\ref{tab:experimentos}).
+
+\begin{table}[H]
+\caption{Experimentos de validación}
+\label{tab:experimentos}
+\centering
+\scriptsize
+\begin{tabular}{|c|p{3.4cm}|p{2.6cm}|}
+\hline
+\textbf{Exp.} & \textbf{Objetivo} & \textbf{Condición} \\
+\hline
+E1 & Operación normal y déficit con alternancia de carga & Residencial e industrial cada 120\,s, SCADA activo \\
+\hline
+E2 & Excedente y recorte de generación & Batería llena, carga baja, SCADA activo \\
+\hline
+E3 & Aporte del SCADA: sin recorte frente a con recorte & Batería llena, carga residencial fija; \texttt{auto off} frente a SCADA activo \\
+\hline
+E4 & Déficit sostenido y deslastre de carga & Carga industrial fija, SOC inicial 50\,\%, SCADA activo \\
+\hline
+E5 & Arranque en negro (\emph{black start}) & Secuencia S9 de día y de noche, carga residencial \\
+\hline
+\end{tabular}
+\end{table}
+
+\subsection{E1: operación normal con carga alternante}
+
+Con el SCADA activo, la carga alterna cada 120\,s entre el escenario residencial y el industrial. La Fig.~\ref{fig:e1_serie} muestra la ventana válida y la Tabla~\ref{tab:e1} resume las métricas por escenario.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{E1_serie_completa.png}
+\caption{E1: tensión de bus, potencias y SOC durante 1010\,s. Sombreado: carga industrial. El día simulado dura 360\,s.}
+\label{fig:e1_serie}
+\end{figure}
+
+\begin{table}[H]
+\caption{E1: métricas por escenario de carga (ventana válida, 1010\,s)}
+\label{tab:e1}
+\centering
+\scriptsize
+\begin{tabular}{|l|c|c|c|}
+\hline
+\textbf{Métrica} & \textbf{Resid.} & \textbf{Indust.} & \textbf{Global} \\
+\hline
+Duración (s) & 528 & 482 & 1010 \\
+\hline
+$P$ carga media (W) & 56.9 & 109.4 & 81.9 \\
+\hline
+$P$ PV media (W) & 27.3 & 26.8 & 27.1 \\
+\hline
+$P$ eólica media (W) & 38.1 & 53.9 & 45.7 \\
+\hline
+$P$ batería media (W)$^{*}$ & $-8.1$ & $+28.2$ & $+9.2$ \\
+\hline
+Autosuficiencia (\%) & 115 & 74 & 89 \\
+\hline
+Batería descargando (\% del tiempo) & 58 & 71 & 64 \\
+\hline
+$V_{bus}$ en banda (\%) & 100 & 100 & 100 \\
+\hline
+SOC mínimo (\%) & 16.8 & 18.7 & 16.8 \\
+\hline
+\end{tabular}
+
+\vspace{2pt}
+{\scriptsize $^{*}$ Positiva: descarga; negativa: carga.}
+\end{table}
+
+El bus se mantuvo en 48.00\,V durante toda la ventana, con desviación estándar de 0.00\,V: mientras la batería regula el bus, este no presenta variación. El comportamiento se explica por el balance de potencia de cada escenario. En el residencial la generación media (65.4\,W) supera a la carga (56.9\,W) y la batería se carga en promedio. En el industrial la carga media (109.4\,W) supera a la generación (80.7\,W) y la batería cubre el déficit, descargándose durante el 71\,\% del tiempo. Esa diferencia se aprecia en la energía por día simulado: la carga industrial demanda 2625\,Wh frente a 1364\,Wh de la residencial, mientras la generación solo cambia en la eólica (1294 frente a 915\,Wh), pues el PV aporta aproximadamente 650\,Wh en ambos.
+
+Con el déficit del escenario industrial, el SOC cayó de 48\,\% a un mínimo de 16.8\,\%. El sistema estuvo en DEFICIT en 588 de las 1010 muestras (58\,\%) y en NORMAL en 422 (42\,\%), sin pasar por EXCEDENTE. La regla S6 (deslastre) actuó dos veces, cuando el SOC bajó de 20\,\% ($t=647$\,s y $t=987$\,s), llevando la carga al 60\,\%, y la regla S7 restauró la carga al 100\,\% a los 749\,s, cuando el SOC se recuperó por encima de 30\,\%. E1 valida entonces las reglas de déficit del SCADA, pero no ejercita las de excedente (S1--S4), porque la batería estuvo siempre en capacidad de absorber la potencia sobrante.
+
+\subsection{E2: excedente y recorte de generación}
+
+Para provocar el excedente, la batería se llevó a SOC alto reduciendo manualmente la carga al 40\,\% (modo C2, REDUCIDA). En el segundo episodio consume apenas 9--10\,W aun en el escenario industrial. Esta condición, más exigente que la de diseño, se reporta tal cual. La Fig.~\ref{fig:e2_serie} muestra el experimento completo y la Fig.~\ref{fig:e2_zoom} el episodio principal; la zona de rojo indica el estado EXCEDENTE.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.50\textwidth]{E2_serie_completa.png}
+\caption{E2: serie completa (zona de rojo: estado EXCEDENTE). Se muestran el Vbus con las marcas S1 y S4, las potencias, el SOC y los topes del SCADA.}
+\label{fig:e2_serie}
+\end{figure}
+
+\begin{figure}[H]
+\centerline{\includegraphics[width=\linewidth]{E2_zoom_episodio.png}}
+\caption{E2: detalle del episodio principal ($t=840$--1060\,s).}
+\label{fig:e2_zoom}
+\end{figure}
+
+El Vbus permaneció en 48.00\,V hasta $t\approx859$\,s. En ese instante el SOC era de 95.6\,\% y la batería entró en protección por SOC/tensión del pack (B5), reduciendo su capacidad de absorber potencia. Sin la batería regulando, la potencia sobrante elevó el bus por encima de 50.4\,V y el SCADA entró en EXCEDENTE (S1) en $t=860$\,s, entre 1 y 2 ciclos después del cruce. Esto muestra que el bus no está fijo: solo se sostiene mientras la batería puede regularlo. La Tabla~\ref{tab:e2} resume los dos episodios de excedente del experimento.
+
+\begin{table}[H]
+\caption{E2: episodios de excedente}
+\label{tab:e2}
+\centering
+\scriptsize
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Métrica} & \textbf{Episodio A} & \textbf{Episodio B} \\
+\hline
+Entrada a EXCEDENTE, S1 (s) & 860 & 1223 \\
+\hline
+Salida, S4 (s) & 1044 & 1384 \\
+\hline
+$V_{bus}$ máximo (V) & 57.0 & 55.1 \\
+\hline
+Tiempo con $V_{bus}>50.4$\,V (s) & 93 & 37 \\
+\hline
+Eventos S2 (de ellos, de $+0$\,W) & 42 (19) & 13 (3) \\
+\hline
+Eventos S3 & 5 & 2 \\
+\hline
+\end{tabular}
+\end{table}
+
+En total el bus pasó 130\,s fuera de la banda, el 9.2\,\% de los 1410\,s del experimento, con un máximo de 57.0\,V ($+18.8\,\%$ sobre el nominal) y 97\,s por encima de 53\,V. La cadena de reglas S1 $\rightarrow$ S2 $\rightarrow$ S3 $\rightarrow$ S4 se ejecutó completa en ambos episodios, con 2 eventos S1, 55 S2, 7 S3 y 2 S4. Del episodio A se destacan cuatro comportamientos:
+\begin{itemize}
+\item \textbf{Velocidad del recorte.} La regla S2 sube el recorte 5\,W cada 2\,s. El SCADA llevó el PV de 57\,W a su piso de 15\,W en 17\,s ($t=860$--877\,s) y luego redujo la eólica de 85\,W a 40\,W en otros 18\,s. Durante ese tiempo el bus se mantuvo cerca de 56\,V. Cuando volvió a 48.00\,V ($t\approx897$\,s), el PV ya estaba en 4\,W por el ocaso simulado, de modo que la recuperación se debió al recorte y a la caída natural de la generación.
+\item \textbf{Ciclo S3/S2.} Con el bus ya en banda y la batería aportando potencia, S3 soltó el tope de la eólica de 40\,W a 60\,W en cuatro pasos ($t=908$--927\,s). El bus superó 50.4\,V de nuevo en $t=961$\,s, 35\,s después de la última liberación, y reinició el ciclo de recorte.
+\item \textbf{Piso de generación.} A partir de $t\approx994$\,s el tope de la eólica llegó a su piso de 13.4\,W. Con el PV nulo por la noche simulada y la carga en 9--10\,W, inferior a ese piso, el SCADA ya no podía reducir más la generación. El bus se mantuvo entre 53 y 57\,V durante unos 37\,s, y S2 emitió 19 eventos de $+0$\,W, señal de que el recorte estaba saturado.
+\item \textbf{Salida.} S3 y S4 liberaron los topes en $t=1044$\,s, devolviendo los generadores a MPPT.
+\end{itemize}
+
+\subsection{E3 y E4 con el firmware de S13}
+
+Estas dos pruebas se repitieron con el firmware de S14 (Sección~\ref{sec:resumen}); aquí se conserva solo lo medido en S13, que sirve de referencia.
+
+\textbf{E3.} Se corrió el mismo escenario con el SCADA pausado (A) y activo (B), con SOC inicial de 91.6 y 91.4\,\%. La fase del día de B iba adelantada unos 17\,s respecto a A porque los STM no arrancaron sincronizados, y el PV de B quedó en circuito abierto desde el tercer amanecer (el atasco del P\&O corregido en S14), por lo que solo se comparó el primer episodio ($t\in[302,715)$\,s). Sin SCADA el bus llegó a 56.98\,V; con SCADA, el tiempo por encima de 53\,V bajó de 46.9 a 34.2\,s ($-27\,\%$), el máximo a 56.29\,V y el recorte alcanzó 90\,W (1 evento S1, 17 S2, 11 S3 y 1 S4). Con el SOC entre 96 y 99\,\% el límite de carga de la batería cayó más rápido de lo que subía el recorte, y el bus tardó 40\,s en volver a banda.
+
+\textbf{E4.} Con carga industrial fija y SOC inicial de 50\,\% durante 719\,s (dos días simulados), la generación media (72\,W) fue menor que la carga (99\,W) y el SOC bajó a 21.5\,\%. S6 actuó en el mismo segundo en que el SOC cruzó 20\,\% ($t=363.7$\,s) y llevó la carga al 60\,\%, pero el SOC siguió bajando hasta 13.0\,\% (48\,s después) porque la generación al inicio del segundo día era de solo 5--40\,W; S7 restauró la carga a los 601.6\,s con SOC de 30\,\%. El bus se mantuvo en 48.00\,V y no se activó B5 ni S8. Con la histéresis de 20/30\,\% y una carga que supera la generación media, el ciclo S6/S7 tiende a repetirse, lo que motivó el deslastre escalonado de S14.
+
+\subsection{E5: arranque en negro}
+
+Con la carga residencial fija se ejecutó la secuencia S9 dos veces en la misma corrida: de día ($t=91.9$\,s, con 88\,W de PV) y de noche ($t=321.5$\,s, con PV nulo). La Fig.~\ref{fig:e5_bs} y la Tabla~\ref{tab:e5} resumen los resultados.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.5\textwidth]{E5_blackstart.png}
+\caption{E5: arranque en negro de día (izquierda) y de noche (derecha). Se muestran el $V_{bus}$ con la banda de 45.6--50.4\,V, las potencias de generación y carga, y la potencia de la batería. Zona sombreada: secuencia de 4 pasos.}
+\label{fig:e5_bs}
+\end{figure}
+
+\begin{table}[H]
+\caption{E5: métricas del arranque en negro}
+\label{tab:e5}
+\centering
+\scriptsize
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Métrica} & \textbf{De día} & \textbf{De noche} \\
+\hline
+Orden de la secuencia (s) & 91.9 & 321.5 \\
+\hline
+Duración hasta NORMAL (s) & 24.8 & 25.4 \\
+\hline
+Duración de los pasos 0--3 (s) & 6.4/5.6/5.9/6.9 & 5.9/7.4/6.1/6.0 \\
+\hline
+$V_{bus}$ extremo (V) & 52.92 (4 s) & 45.16 (2 s) \\
+\hline
+Carga previa (media, W) & 55.8 & 82.7 \\
+\hline
+Carga mínima durante la secuencia (W) & 10.4 & 15.0 \\
+\hline
+Muestras con carga $<20$\,W & 18 & 17 \\
+\hline
+Potencia de la batería (W) & $-66$ a $-132$ & 0 a $+77$ \\
+\hline
+\end{tabular}
+\end{table}
+
+La secuencia se respetó en ambas condiciones: cuatro pasos de unos 6\,s (entre 5.6 y 7.4\,s), un total de 24.8 y 25.4\,s, y regreso a NORMAL sin eventos S8 ni subsistemas fuera de línea. El ``bus caído'' del paso 0 es en realidad emulado: en modo SAFE los generadores no se desconectan (el PV mantuvo 88\,W y la eólica $\approx$30\,W, con la referencia de tensión congelada), y la carga baja a su perfil mínimo de 10--15\,W en lugar de 0\,W. Además, la batería en SAFE limita su corriente a $\pm2.0$\,A ($\approx$77\,W), y eso explica las excursiones del bus. De día entraban 107\,W de excedente, más de lo que la batería puede absorber, y el bus subió a 52.92\,V durante unos 4\,s (alarma B6). De noche la carga (93\,W) superaba lo que la batería puede entregar y el bus cayó a 45.16\,V durante unos 2\,s, hasta que la carga bajó a su mínimo. En ambos casos el bus regresó a 48.00\,V sin intervención. La carga permaneció por debajo de 20\,W unos 18\,s y volvió a su perfil entre 1.1 y 1.7\,s después del paso 3.
+
+Al reconectarse el PV en MPPT no hubo bloqueo en la prueba diurna; en la nocturna no es posible evaluarlo porque el PV estaba en 0\,W. La eólica de la prueba nocturna cayó a 0\,W entre 329.6 y 335.9\,s y se recuperó $\approx$8\,s después del paso 2; con estos datos no se separa cuánto se debió a falta de viento y cuánto al modo SAFE. Como el apagón es emulado, E5 valida la secuencia de reconexión y no un arranque desde un bus realmente desenergizado.
+
+\section{Comparación con las Arquitecturas de Referencia del Curso}
+\label{sec:comparacion}\label{app:comp}
+
+Con el fin de enmarcar el alcance de lo validado, se comparó lo construido contra los informes de los demás subgrupos del curso responsables de cada subsistema físico~\cite{gonzalez2026eolica,aristizabal2026pv,alvarez2026scada,hernandez2026carga,pinto2026peb,vega2026bateria}. Esta comparación es relevante porque \textbf{lo aquí reportado corresponde a una emulación a nivel de señal/control sobre STM32, no a una réplica física de los bancos de prueba} que dichos informes describen.
+
+\textbf{Fotovoltaico.} El subsistema de referencia~\cite{aristizabal2026pv} emplea una fuente DC programable controlada desde Python, con tres modelos eléctricos seleccionables (el más fiel resuelto por Newton-Raphson) e irradiancia derivada de datos meteorológicos reales transpuestos al plano del panel, validado contra un microinversor comercial. Lo construido corresponde únicamente al nivel del modelo simplificado de esa referencia, con un perfil de irradiancia sintético en lugar de datos meteorológicos reales.
+
+\textbf{Turbina eólica.} El subsistema de referencia~\cite{gonzalez2026eolica} es un banco motor-generador real con rectificación pasiva de diodos y sensado dedicado. La curva viento--frecuencia (arranque a 3\,m/s, nominal a 11\,m/s, corte a 25\,m/s) y los parámetros de la fuente de Thevenin salen de las tablas de esa referencia. Un hallazgo relevante de esa referencia debe declararse aquí como limitación reconocida: el banco real demuestra experimentalmente que un rectificador pasivo sin etapa activa adicional \emph{no} mantiene el bus regulado bajo carga, con una caída reportada superior al 55\,\% del voltaje bajo carga. Por lo tanto, la simplificación adoptada en este trabajo, tensión de bus regulada al valor nominal, es una idealización que ni siquiera el banco físico de referencia logra sin una etapa Boost/MPPT activa, identificada en dicha referencia como trabajo futuro. Los experimentos E2, E3 y E5 muestran además que, incluso en la emulación, el bus solo permanece en 48\,V mientras la batería puede regularlo (Sección~\ref{sec:validacion}).
+
+\textbf{Banco de baterías.} El subsistema mejor alineado con su referencia~\cite{vega2026bateria}. El informe de referencia caracteriza un pack real equivalente en capacidad teórica (14.5\,Ah) al modelado en este trabajo, con límites de corriente similares (0.5C continuo, hasta 1C en pulso) y resistencia interna creciente al disminuir el SOC, como en el modelo aquí implementado. También reporta estimación de SOC por conteo de culombios, que aquí se usa sin recalibración. El informe de referencia no publica la tabla numérica completa de $R_0$, por lo que el rango de $R_0$ usado en el modelo es una elección propia.
+
+\textbf{Electrónica de potencia.} La brecha más amplia frente a las referencias del curso. Esa referencia~\cite{pinto2026peb} describe un convertidor DC-DC real de clase kilovatio, validado mediante Power-Hardware-in-the-Loop, correspondiente a la etapa que físicamente conectaría cada subsistema al bus de 48\,V real. Lo construido en este trabajo es una emulación de señal/control sin transferencia de potencia física, límite de alcance que se declara explícitamente para no sugerir una integración de potencia real inexistente en esta fase.
+
+\textbf{SCADA.} La arquitectura SCADA de referencia del curso~\cite{alvarez2026scada} emplea un controlador lógico programable como maestro Modbus TCP sondeando cada subsistema, con una interfaz gráfica dedicada y control jerárquico de tres niveles. Lo construido en este trabajo sustituye esa arquitectura por un gateway ESP32 con MQTT, una alternativa más liviana adoptada conscientemente ante la falta de transceptores para comunicación serial industrial; se documenta aquí como una decisión de diseño alternativa y contrastada, no como equivalente a la arquitectura de referencia del curso.
+
+\textbf{Carga.} El subsistema de referencia~\cite{hernandez2026carga} construye sus perfiles de demanda (residencial e industrial, a distintos factores de potencia) mediante interpolación sobre curvas horarias normalizadas en p.u., los simula en Typhoon HIL con un bloque de carga variable trifásica, y finalmente los reproduce físicamente escalados en una carga electrónica RIGOL DL3021 controlada por SCPI. El escenario industrial de este trabajo replica el mismo principio de interpolación horaria en p.u. y la variación del factor de potencia, pero a una escala de emulación muy inferior: un nodo STM32 con corrientes del orden de amperios, sin HIL ni carga electrónica de potencia real detrás. Además de los dos escenarios de esa referencia, el emulador modela el rendimiento del inversor según el factor de potencia y la dinámica de la corriente (pendiente y filtro). La brecha frente a esa referencia es, por tanto, la misma que la señalada para PV y turbina: un modelo de señal/control fiel en la forma de la demanda, sin la infraestructura de potencia real que la referencia sí valida.
+
+
+\begin{thebibliography}{00}
+
+\bibitem{gonzalez2026eolica}
+J. D. González Cubides, J. D. Roa Ballén, and C. D. González Mayorga, ``Emulación experimental y supervisión SCADA de un subsistema eólico de 300 W para microrredes DC basado en PMSG,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{aristizabal2026pv}
+L. Á. Aristizábal Correa, J. F. Angulo Rubiano, and S. J. Fonseca Boada, ``Emulación de Arreglos Fotovoltaicos para Microrredes DC de Laboratorio: Pipeline en Python, Comparación de Modelos Eléctricos e Integración SCPI--Modbus TCP,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{alvarez2026scada}
+M. Alvarez Valenzuela, A. F. Mosquera Gómez, and Ó. M. Cristancho Florez, ``Informe Final: SCADA,'' Taller de Potencia, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{hernandez2026carga}
+J. F. Hernández, D. E. Niño Jimenez, and J. J. Castillo Urbano, ``Metodología de Emulación de Perfiles de Demanda en Microrredes DC mediante Integración C-HIL y Cargas Programables,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{pinto2026peb}
+J. D. Pinto Cardenas and J. J. Vasquez Polaina, ``Informe final: Bloque Modular de Electrónica de Potencia (PEBB) basado en un Convertidor DC--DC en Configuración de Medio Puente con IGBT para Microrredes DC,'' Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{vega2026bateria}
+L. D. Vega Moreno, J. S. Torres Soler, and J. J. Carrera Luna, ``Integración y caracterización de un sistema de almacenamiento 10s5p basado en Ion-Litio para microrredes DC,'' Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{bader2019pv}
+S.~Bader, X.-Y.~Ma, and B.~Oelmann, ``One-diode photovoltaic model parameters at indoor illumination levels -- A comparison,'' \emph{Solar Energy}, vol.~180, pp.~707--716, 2019. DOI: 10.1016/j.solener.2019.01.048.
+
+\bibitem{han2024battery}
+S.~Han, ``Optimal Charging Current Protocol with Multi-Stage Constant Current Using Dandelion Optimizer for Time-Domain Modeled Lithium-Ion Batteries,'' \emph{Applied Sciences}, vol.~14, no.~23, p.~11320, 2024. DOI: 10.3390/app142311320.
+
+\bibitem{benavides2025eolica}
+D.~E.~Benavides-Mendoza, C.~L.~Trujillo-Rodríguez, and Ó.~D.~Montoya-Giraldo, ``Modelado, diseño y control de un sistema de generación eólica basado en MPPT con convertidor electrónico de potencia para la integración de una turbina a una microrred,'' \emph{TecnoLógicas}, vol.~28, no.~62, pp.~1--28, 2025. DOI: 10.22430/22565337.3130.
+
+\bibitem{rodriguezlicea2018cpl}
+M.-A.~Rodríguez-Licea, F.-J.~Pérez-Pinal, J.-C.~Nuñez-Perez, and C.-A.~Herrera-Ramirez, ``Nonlinear Robust Control for Low Voltage Direct-Current Residential Microgrids with Constant Power Loads,'' \emph{Energies}, vol.~11, no.~5, p.~1130, 2018. DOI: 10.3390/en11051130.
+
+\bibitem{ontibon2025pebb}
+J.~Ontibón \emph{et al.}, ``Power Electronics Building Block for Power-Hardware-In-The-Loop and Its Application in Microgrid Research,'' 2025.
+
+\bibitem{anthropic2026claude}
+Anthropic, ``Claude (Sonnet),'' modelo de lenguaje de gran escala utilizado para la revisión de formato del documento, verificación de consistencia de citas, y revisión de gramática y ortografía, Anthropic, 2026. [En línea]. Disponible: https://www.anthropic.com/claude
+
+\end{thebibliography}
+
+
+\end{document}
