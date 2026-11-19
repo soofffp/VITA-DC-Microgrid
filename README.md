@@ -14,6 +14,7 @@ Cada subsistema corre en una STM32F303K8 (modelo de la fuente, convertidor prome
 | `firmware/gateway_esp32/gateway_v7` | Sketch de Arduino del gateway (SCADA + MQTT) |
 | `scada_pc` | `logger_raw.py` (CSV crudo) |
 | `datos` | CSV de cada experimento (P0, E1–E4; E5 y E6 pendientes) |
+| `analisis` | `analisis_E3_E4.py`: métricas y figuras de E3 y E4 desde los CSV (`python analisis/analisis_E3_E4.py`) |
 | `docs` | Protocolo de toma de datos y figuras del informe |
 
 ## Reproducir
@@ -32,7 +33,7 @@ Todos los CSV están en `datos/`. Cada archivo indica con qué versión de firmw
 | E1 | Operación normal del bus (sin SCADA actuando) | `E1_log.csv` | S13 |
 | E2 | Excedente y tope de tensión | `E2_log.csv` | S13 |
 | E3 | Coordinación PV/eólica en excedente: A (sin SCADA) vs B (con SCADA) | `E3_A.csv`, `E3_B.csv` | S14 (repetición del 18/11/2026) |
-| E4 | Déficit y deslastre de la carga | `E4.csv` | S14 (repetición del 18/11/2026) |
+| E4 | Carga industrial con SCADA activo (el SOC no bajó de 45 %: el deslastre se evalúa con P0) | `E4.csv` | S14 (repetición del 18/11/2026) |
 | E5 | Perfil dinámico de carga | pendiente de subir | -- |
 | E6 | Aislamiento de falla por contactor | pendiente | -- |
 
