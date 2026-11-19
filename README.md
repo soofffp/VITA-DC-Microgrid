@@ -20,7 +20,7 @@ Cada subsistema corre en una STM32F303K8 (modelo de la fuente, convertidor prome
 
 1. **STM32** (una por subsistema): compilar con `cmake --preset <preset>` y `cmake --build`, y cargar por SWD con `STM32_Programmer_CLI -c port=SWD -w <archivo>.elf -v -rst`. Energizar o reiniciar las cuatro placas **a la vez** para que sus relojes de 360 s queden en fase.
 2. **Gateway**: copiar `firmware/gateway_esp32/gateway_v7/secrets.example.h` a `secrets.h`, poner la red Wi-Fi y la IP del broker, y cargar el sketch desde Arduino IDE.
-3. **PC**: iniciar Mosquitto y luego `python scada_pc/logger_raw.py` (guarda todos los topics en un CSV) y `python scada_pc/scada_dashboard.py` (tablero).
+3. **PC**: iniciar Mosquitto y luego `python scada_pc/logger_raw.py` (guarda todos los topics en un CSV).
 
 ## Experimentos y datos
 
