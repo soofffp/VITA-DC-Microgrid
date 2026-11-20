@@ -13,8 +13,8 @@ Cada subsistema corre en una STM32F303K8 (modelo de la fuente, convertidor prome
 | `firmware/stm32_pv`, `stm32_eolica`, `stm32_bateria`, `stm32_carga` | Proyectos CubeMX + CMake de cada placa |
 | `firmware/gateway_esp32/gateway_v7` | Sketch de Arduino del gateway (SCADA + MQTT) |
 | `scada_pc` | `logger_raw.py` (CSV crudo) |
-| `datos` | CSV de cada experimento (P0, E1–E4; E5 y E6 pendientes) |
-| `analisis` | `analisis_E3_E4.py`: métricas y figuras de E3 y E4 desde los CSV (`python analisis/analisis_E3_E4.py`) |
+| `datos` | CSV de cada experimento (P0, E1–E6) |
+| `analisis` | `metricas_experimentos.py`: métricas de P0 y E1–E6 desde los CSV |
 | `docs` | Protocolo de toma de datos y figuras del informe |
 
 ## Reproducir
@@ -25,21 +25,32 @@ Cada subsistema corre en una STM32F303K8 (modelo de la fuente, convertidor prome
 
 ## Experimentos y datos
 
-Todos los CSV están en `datos/`. Cada archivo indica con qué versión de firmware se tomó.
+Todos los CSV están en `datos/` y salen del registrador (`scada_pc/logger_raw.py`): una fila por mensaje MQTT, con columnas `t_pc_iso, t_rel_s, topic, payload` (el payload es JSON). Las cifras del informe se reproducen con `python analisis/metricas_experimentos.py` (resultado en `docs/metricas_experimentos.txt`).
 
-| Exp. | Qué valida | Archivo | Firmware |
+| Exp. | Qué valida | Archivo | Fecha de toma |
 |---|---|---|---|
-| P0 | PV sin atasco al amanecer + deslastre escalonado (≈3.3 días simulados) | `P0_demo.csv` | S14 (gateway v7, MPPT corregido) |
-| E1 | Operación normal del bus (sin SCADA actuando) | `E1_log.csv` | S13 |
-| E2 | Excedente y tope de tensión | `E2_log.csv` | S13 |
-| E3 | Coordinación PV/eólica en excedente: A (sin SCADA) vs B (con SCADA) | `E3_A.csv`, `E3_B.csv` | S14 (repetición del 18/11/2026) |
-| E4 | Carga industrial con SCADA activo (el SOC no bajó de 45 %: el deslastre se evalúa con P0) | `E4.csv` | S14 (repetición del 18/11/2026) |
-| E5 | Perfil dinámico de carga | pendiente de subir | -- |
-| E6 | Aislamiento de falla por contactor | pendiente | -- |
+| P0 | PV sin atasco al amanecer + deslastre escalonado (≈3.3 días simulados) | `P0_demo.csv` | 18/11/2026 |
+| E1 | Operación normal con carga alternante residencial/industrial | `E1.csv` | 19/11/2026 |
+| E2 | Excedente con SCADA (tres episodios) | `E2.csv` | 19/11/2026 |
+| E3 | Excedente sin SCADA (A) frente a con SCADA (B) | `E3_A.csv`, `E3_B.csv` | 18/11/2026 |
+| E4 | Carga industrial sostenida y deslastre escalonado | `E4.csv` | 19/11/2026 |
+| E5 | Arranque en negro, de día y de noche | `E5.csv` | 19/11/2026 |
+| E6 | Falla de un generador (PV desenergizado) | `E6.csv` | 18/11/2026 |
 
-Formatos: `E1_log.csv` y `E2_log.csv` son del registrador anterior (una fila por subsistema o por muestra del SCADA). `P0_demo.csv`, `E3_*.csv` y `E4.csv` son del registrador actual (`logger_raw.py`): una fila por mensaje MQTT, con columnas `t_pc_iso, t_rel_s, topic, payload` (el payload es JSON).
+Todos se tomaron con el firmware v7 del gateway y el PV corregido. Otras carpetas de datos:
+
+- `datos/s13/`: E1 y E2 de la entrega anterior (S13, firmware viejo), solo como línea base.
+- `datos/intentos_previos/`: una corrida de E4 del 18/11 en la que el SOC nunca bajó de 45 % y el deslastre no se activó; se repitió el 19/11 (`E4.csv`).
 
 Los criterios de aceptación y el procedimiento de cada experimento están en `docs/protocolo_toma_datos_S14.md`.
+
+## Estado del firmware
+
+| Carpeta | Contenido actual |
+|---|---|
+| `firmware/gateway_esp32/gateway_v7` | Sketch completo del gateway (SCADA y MQTT). |
+| `firmware/stm32_pv` | `app_pv_M.c`, `pv_control.c` (con la corrección del P&O), `pv_control.h`, `conv_link.h` y `CMakeLists.txt`. Falta el resto del proyecto CubeMX (`main.c` generado, `.ioc`, HAL). |
+| `firmware/stm32_eolica`, `stm32_bateria`, `stm32_carga` | Pendiente: solo hay un `LEEME.txt`. |
 
 ## Autores
 

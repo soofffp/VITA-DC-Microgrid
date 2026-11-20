@@ -1,0 +1,86 @@
+
+== P0 (datos/P0_demo.csv) ==
+duracion 1194 s | Vbus en banda 100.0 % | Vbus max 48.00 V | tiempo >53 V 0 s (0.0 %)
+SOC inicial 48.1 % | SOC min 24.5 % (t=1095 s) | bateria descargando 56.2 % | recorte max 0 W
+muestras: NORMAL 50.5 %, DEFICIT 49.5 %
+  t=  390.3 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t=  478.3 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+  t=  724.2 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t=  798.3 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+  t= 1059.3 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t= 1089.3 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+  t= 1170.3 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
+
+== E1 (datos/E1.csv) ==
+duracion 1047 s | Vbus en banda 100.0 % | Vbus max 48.00 V | tiempo >53 V 0 s (0.0 %)
+SOC inicial 45.0 % | SOC min 24.8 % (t=727 s) | bateria descargando 63.1 % | recorte max 0 W
+muestras: DEFICIT 54.1 %, NORMAL 45.9 %
+  t=  574.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t=  726.2 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+  t=  785.1 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
+  t=  803.1 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+
+== E2 (datos/E2.csv) ==
+duracion 1428 s | Vbus en banda 78.1 % | Vbus max 57.90 V | tiempo >53 V 263 s (18.4 %)
+SOC inicial 46.7 % | SOC min 45.4 % (t=10 s) | bateria descargando 35.4 % | recorte max 87 W
+muestras: EXCEDENTE 58.8 %, NORMAL 29.7 %, DEFICIT 11.5 %
+  t=  404.7 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 25 W (tope PV 52 / eolica -1)
+  t=  689.7 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
+  t=  737.8 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 15 W (tope PV 32 / eolica -1)
+  t= 1030.8 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
+  t= 1112.7 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 30 W (tope PV 34 / eolica -1)
+  t= 1372.8 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
+  escalones S2: 139 (de ellos 128 de +0 W)
+
+== E3 A (sin SCADA) (datos/E3_A.csv) ==
+duracion 1009 s | Vbus en banda 47.1 % | Vbus max 58.00 V | tiempo >53 V 529 s (52.4 %)
+SOC inicial 46.7 % | SOC min 45.7 % (t=7 s) | bateria descargando 14.1 % | recorte max 0 W
+muestras: DEFICIT 100.0 %
+
+== E3 B (con SCADA) (datos/E3_B.csv) ==
+duracion 1080 s | Vbus en banda 82.0 % | Vbus max 57.91 V | tiempo >53 V 168 s (15.5 %)
+SOC inicial 45.1 % | SOC min 45.1 % (t=0 s) | bateria descargando 30.2 % | recorte max 90 W
+muestras: EXCEDENTE 53.3 %, NORMAL 36.1 %, DEFICIT 10.6 %
+  t=  390.4 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 20 W (tope PV 60 / eolica -1)
+  t=  673.7 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
+  t=  718.7 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 30 W (tope PV 17 / eolica -1)
+  t= 1013.7 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
+  escalones S2: 86 (de ellos 79 de +0 W)
+
+== E4 (datos/E4.csv) ==
+duracion 1083 s | Vbus en banda 100.0 % | Vbus max 48.00 V | tiempo >53 V 0 s (0.0 %)
+SOC inicial 44.9 % | SOC min 21.4 % (t=1079 s) | bateria descargando 57.9 % | recorte max 0 W
+muestras: NORMAL 52.0 %, DEFICIT 48.0 %
+  t=  328.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t=  350.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+  t=  433.1 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
+  t=  463.1 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+  t=  568.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t=  724.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+  t=  796.2 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
+  t=  822.1 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+  t= 1017.0 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t= 1050.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+
+== E5 (datos/E5.csv) ==
+duracion 525 s | Vbus en banda 99.0 % | Vbus max 53.81 V | tiempo >53 V 4 s (0.8 %)
+SOC inicial 47.3 % | SOC min 44.7 % (t=21 s) | bateria descargando 43.6 % | recorte max 0 W
+muestras: NORMAL 57.8 %, DEFICIT 33.1 %, ARRANQUE 9.1 %
+  t=   96.6 s  arranque en negro paso 0: TODO EN SAFE (bus caido)
+  t=  102.6 s  arranque en negro paso 1: la bateria forma el bus
+  t=  108.6 s  arranque en negro paso 2: PV y eolica reconectan (MPPT)
+  t=  114.6 s  arranque en negro paso 3: carga reconectada: regimen normal
+  t=  120.6 s  arranque en negro paso -1: completado
+  t=  326.5 s  arranque en negro paso 0: TODO EN SAFE (bus caido)
+  t=  332.5 s  arranque en negro paso 1: la bateria forma el bus
+  t=  338.5 s  arranque en negro paso 2: PV y eolica reconectan (MPPT)
+  t=  344.5 s  arranque en negro paso 3: carga reconectada: regimen normal
+  t=  350.5 s  arranque en negro paso -1: completado
+
+== E6 (datos/E6.csv) ==
+duracion 162 s | Vbus en banda 100.0 % | Vbus max 48.00 V | tiempo >53 V 0 s (0.0 %)
+SOC inicial 47.1 % | SOC min 46.5 % (t=4 s) | bateria descargando 11.7 % | recorte max 0 W
+muestras: NORMAL 95.7 %, DEFICIT 4.3 %
+
+== E6: hueco de telemetria del PV: ultima lectura t=35.98 s (71.7 W), vuelve t=80.04 s (44.1 s sin datos)
+   pv_online: 0 en t=39.03 s, 1 en t=79.97 s
