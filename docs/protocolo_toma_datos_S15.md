@@ -1,8 +1,8 @@
-# Protocolo de toma de datos — entrega S14 (VITA-DC / Microred DC 48 V)
+# Protocolo de toma de datos — entrega S15 (VITA-DC / Microred DC 48 V)
 
 **Para:** un Claude que acompaña a Sofi y Tomás (Universidad de los Andes) mientras toman los datos de los experimentos que faltan, y después analiza los CSV.
 **Idioma de trabajo:** español (informal, directo).
-**Contexto:** la nota de S13 fue baja por pendientes de validación; la nota de S14 se promedia con S13 y reemplaza la de S13. Hay ~5 días desde el 2026-11-09. Lo que se obtenga aquí alimenta el informe (máx. 8 páginas + anexos) y el póster.
+**Contexto:** la nota de S13 fue baja por pendientes de validación; la nota de S15 se promedia con S13 y reemplaza la de S13. Hay ~5 días desde el 2026-11-09. Lo que se obtenga aquí alimenta el informe (máx. 8 páginas + anexos) y el póster.
 
 > Si tienes acceso al PC (terminal), puedes correr el logger y procesar los CSV tú mismo.
 > Si no, guía a los humanos paso a paso y analiza los archivos que te suban.
@@ -160,7 +160,7 @@ Definidos por requisitos de diseño, no por los resultados. Reportar cumple/no c
 - Tabla de criterios de aceptación con cumple/no cumple y valor medido, por experimento.
 - Una figura por experimento (P0, E1–E5) con su párrafo de análisis.
 - **Captura de pantalla del SCADA en funcionamiento** (lo pide el profesor). El `scada_dashboard.py` de `C:\STM32\scada` es una versión vieja que solo grafica V/I/P; el informe describe un tablero más completo (Vbus con banda, potencias, SOC, sombreado, línea de estado). Preguntar a Tomás dónde está la versión actual y tomar la captura durante E2 o E3, cuando se vea un episodio de excedente.
-- Comparación antes/después: S13 vs S14 para E3 (sin SCADA vs con SCADA) y E4 (SOC mínimo y deslastre).
+- Comparación antes/después: S13 vs S15 para E3 (sin SCADA vs con SCADA) y E4 (SOC mínimo y deslastre).
 - Tabla **hardware vs emulación** (qué corre en hardware real: STM, ESP32, I2C, MQTT, SCADA; qué se emula en firmware: fuentes, convertidores, potencia; qué no existe: etapa de potencia, contactores, sensores físicos).
 - Para el póster (público no ingeniero): 3 mensajes grandes y 2 o 3 gráficas limpias. No pegar tablas de parámetros.
 

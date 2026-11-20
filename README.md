@@ -42,7 +42,7 @@ Todos se tomaron con el firmware v7 del gateway y el PV corregido. Otras carpeta
 - `datos/s13/`: E1 y E2 de la entrega anterior (S13, firmware viejo), solo como línea base.
 - `datos/intentos_previos/`: una corrida de E4 del 18/11 en la que el SOC nunca bajó de 45 % y el deslastre no se activó; se repitió el 19/11 (`E4.csv`).
 
-Los criterios de aceptación y el procedimiento de cada experimento están en `docs/protocolo_toma_datos_S14.md`.
+Los criterios de aceptación y el procedimiento de cada experimento están en `docs/protocolo_toma_datos_S15.md`.
 
 ## Estado del firmware
 
