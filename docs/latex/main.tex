@@ -1,0 +1,397 @@
+\documentclass[conference]{IEEEtran}
+
+\IEEEoverridecommandlockouts
+% The preceding line is only needed to identify funding in the first footnote. If that is unneeded, please comment it out.
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{circuitikz}
+\usepackage{silence}
+\usepackage{amsthm}
+\usepackage{enumitem}
+\usepackage{eufrak}
+\usepackage{tabularx}
+\usepackage{lipsum}
+\usepackage{pifont}
+\usepackage{yfonts}
+\usepackage{booktabs}
+\usepackage{float}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{comment}
+\usepackage{amsfonts}
+\usepackage{csquotes}
+\usepackage{fancyhdr}
+\usepackage{graphicx}
+\usepackage{listings}
+\usepackage{mathrsfs}
+\usepackage{setspace}
+\usepackage{textcomp}
+\usepackage{multicol}
+\usepackage{blindtext}
+\usepackage{enumerate}
+\usepackage{kantlipsum}
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+\renewcommand{\refname}{Referencias}
+\renewcommand{\lstlistingname}{Listado}
+% Marcador de contenido pendiente (se muestra en rojo).
+\newcommand{\PEND}[1]{{\color{red}[#1]}}
+\begin{document}
+
+\title{Validación de una microrred DC de 48 V emulada: condiciones nominales y ante perturbaciones sobre STM32 y ESP32\\
+}
+
+\author{\IEEEauthorblockN{Sofía Parra Rozo}
+\IEEEauthorblockA{\textit{Departamento de Ingeniería Eléctrica y Electrónica} \\
+\textit{Universidad de los Andes}\\
+Bogotá, Colombia \\
+s.parrar2@uniandes.edu.co}
+\and
+\IEEEauthorblockN{Tomás Durán Cardoso}
+\IEEEauthorblockA{\textit{Departamento de Ingeniería Eléctrica y Electrónica} \\
+\textit{Universidad de los Andes}\\
+Bogotá, Colombia\\
+t.duranc@uniandes.edu.co}
+}
+
+\maketitle
+
+\begin{abstract}
+Este documento presenta la validación de una microrred DC de 48\,V emulada sobre microcontroladores, con cuatro subsistemas (arreglo fotovoltaico, turbina eólica, banco de baterías y carga variable) y un nivel supervisorio. Cada subsistema vive en una STM32F303K8 que integra su fuente, un convertidor DC-DC y su control local, y un gateway ESP32-S3 los acopla, ejecuta una máquina de estados de supervisión (recorte proporcional de generación, deslastre de carga por niveles, modo seguro y arranque en negro) y publica por MQTT. Respecto a la entrega anterior se corrigió el seguimiento del punto de máxima potencia del PV, que quedaba en circuito abierto al amanecer, y se rediseñó el deslastre. La validación usa criterios de aceptación cuantitativos, separa de forma explícita el hardware real de la emulación y repite todos los experimentos con el firmware actual (una corrida por caso). El PV arrancó solo en 3 de 3 amaneceres y el bus se mantuvo en 48.00\,V mientras la batería lo reguló. El deslastre escalonado mantuvo el SOC mínimo en 24.8\,\% (carga alternante) y 21.4\,\% (carga industrial sostenida), frente a 16.8 y 13.0\,\% con el deslastre anterior (semana 13). En excedente, el recorte proporcional redujo 71\,\% la fracción de tiempo con el bus sobre 53\,V, pero no evitó un pico de $\approx$58\,V con la batería llena; el arranque en negro, emulado, tardó 24.0\,s pero de día el bus llegó a 53.81\,V, fuera de la banda propuesta. La falla de un generador, emulada desenergizando la placa del PV, se detectó en $\approx$3\,s sin sacar al bus de 48.00\,V. Los detalles de implementación están en los anexos técnicos y en el repositorio del proyecto.
+\end{abstract}
+
+\begin{IEEEkeywords}
+microrred DC, emulación, STM32, ESP32, MQTT, SCADA, MPPT, deslastre de carga
+\end{IEEEkeywords}
+
+\section{Introducción}
+
+Las microrredes DC resultan atractivas para comunidades aisladas o con red débil, porque sus fuentes (paneles, baterías, rectificadores de pequeñas turbinas) y buena parte de sus cargas ya son de corriente continua. Antes de invertir en equipos de potencia conviene probar cómo se comportan juntos los generadores, el almacenamiento y la demanda, y cómo los gobierna una estrategia de supervisión.
+
+Este trabajo construye esa plataforma de prueba para un bus DC de 48\,V con cuatro subsistemas: un arreglo fotovoltaico, una turbina eólica con rectificador pasivo, un banco de baterías 10s5p que forma el bus y una carga variable (perfiles residencial e industrial). Los modelos se basan en las investigaciones de los demás subgrupos del curso~\cite{aristizabal2026pv,gonzalez2026eolica,vega2026bateria,hernandez2026carga}. Aquí no se replican los equipos físicos sino que se \emph{emulan}: cada subsistema reside en una STM32F303K8 que integra el modelo de su fuente, un convertidor DC-DC promediado y su lazo de control local, y un gateway ESP32-S3 hace de maestro I2C, ejecuta la supervisión (SCADA) y publica por MQTT hacia un registrador y un tablero en vivo.
+
+El objetivo de esta entrega es validar el sistema integrado, con criterios de aceptación cuantitativos fijados \emph{antes} de medir, en condiciones nominales y ante perturbaciones (excedente, déficit, arranque en negro). Las contribuciones son: (i) una arquitectura de una STM32 por subsistema con una trama común de convertidor, de modo que un convertidor físico pueda reemplazar a la emulación sin cambiar el SCADA; (ii) un SCADA como máquina de estados con recorte proporcional de generación y deslastre de carga por niveles; (iii) la corrección de un fallo del seguimiento del punto de máxima potencia (MPPT) del PV al amanecer; y (iv) una validación experimental que separa de forma explícita lo que es hardware real de lo que es emulación.
+
+Para respetar la extensión, este documento presenta el sistema y los resultados; los modelos con sus ecuaciones y curvas, el convertidor universal, el bus I2C, los lazos de control, las reglas completas del SCADA, el detalle de los experimentos de la entrega anterior y la comparación con las arquitecturas de referencia están en los anexos. El código, los datos y las figuras están en el repositorio del proyecto (ver Conclusiones).
+
+\section{Sistema Emulado}
+\label{sec:sistema}
+
+\subsection{Arquitectura}
+
+La Fig.~\ref{fig:arq} resume la arquitectura y la Fig.~\ref{fig:montaje} muestra el montaje y el tablero. Las cuatro STM32 son esclavas I2C (100\,kHz) del ESP32-S3; cada una responde en dos direcciones, una de telemetría de planta y convertidor (0x10--0x13) y otra de control y comandos (0x20--0x23). El ESP32-S3 interroga las placas cada segundo, calcula la potencia neta del resto de la microrred y se la envía a la batería, ejecuta el SCADA y publica todo por MQTT. Un script de Python registra los mensajes crudos en un CSV y alimenta un tablero en vivo.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=\linewidth]{arquitectura.png}
+\caption{Arquitectura del sistema: cuatro STM32 (planta, convertidor y control local) conectadas por I2C al ESP32-S3 (SCADA), que publica por Wi-Fi/MQTT hacia el PC.}
+\label{fig:arq}
+\end{figure}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.48\linewidth]{montaje_real.png}\hfill
+\includegraphics[width=0.48\linewidth]{scada_captura.png}
+\caption{Montaje real (izquierda: cuatro STM32 y el ESP32-S3) y tablero SCADA en vivo (derecha), en operación normal con $V_{bus}=48.0$\,V.}
+\label{fig:montaje}
+\end{figure}
+
+Los cuatro subsistemas comparten un reloj de simulación en el que un día de 24\,h dura 360\,s (1\,h $=15$\,s) y arrancan a las 6\,h simuladas. El SOC de la batería se integra con una aceleración fija de $60\times$ respecto al tiempo real. La banda de operación es $48\,\text{V}\pm5\,\%$ (45.6--50.4\,V).
+
+\subsection{Subsistemas, convertidor y control local}
+
+La Tabla~\ref{tab:sub} resume cada subsistema. Todos exponen la misma trama de convertidor (tensión de entrada, tensión y corriente de bus, ciclo de trabajo y banderas), definida una sola vez en el firmware y reutilizada por las cuatro placas, y el convertidor se integra en la misma interrupción de 10\,kHz que el modelo de la fuente y el lazo de control. Las ecuaciones, curvas y circuitos equivalentes están en el Anexo~B, y los lazos y sus parámetros en el Anexo~E.
+
+\begin{table}[H]
+\caption{Subsistemas emulados (cada uno en una STM32F303K8)}
+\label{tab:sub}
+\centering
+\scriptsize\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{|l|p{2.0cm}|p{1.5cm}|p{2.0cm}|}
+\hline
+\textbf{Sub.} & \textbf{Fuente emulada} & \textbf{Convertidor} & \textbf{Control local} \\
+\hline
+PV & Renogy 100\,W, 1\,diodo, $G(h)$ senoidal & Boost & MPPT P\&O + PI de $V_{pv}$ \\ \hline
+Eólica & PMSG + rectificador, Thevenin $V_{oc}(f)$, $R_{eq}(f)$ & Boost & MPPT P\&O + PI (mismo módulo del PV) \\ \hline
+Batería & Thevenin 1.er orden, 10s5p, 14.5\,Ah & Bidireccional & PI de $V_{bus}$ + PI de corriente \\ \hline
+Carga & Potencia constante, perfiles res./ind. (150\,W máx.) & Emulador de corriente & Lazo abierto con $\lambda\in[0,1]$ \\ \hline
+\end{tabular}
+\end{table}
+
+\textbf{Modelos principales.} Las ecuaciones completas y los parámetros están en el Anexo~B; ahí también están los circuitos equivalentes. El PV genera la irradiancia $G(h)$ entre las 6 y las 18\,h, de la que se obtienen la temperatura de celda y la corriente del módulo,
+\begin{equation}
+\label{eq:G}
+G(h)=\begin{cases}
+1000\,\sin\!\left(\pi\,\dfrac{h-6}{12}\right), & 6<h<18\\[4pt]
+0, & \text{en otro caso,}
+\end{cases}
+\end{equation}
+\begin{equation}
+\label{eq:Tcell}
+T_{cell}=T_a+\frac{NOCT-20}{800}\,G,
+\end{equation}
+\begin{equation}
+\label{eq:Ipv}
+I=I_{sc}\,\frac{G}{1000}\,\big[1+\alpha\,(T_{cell}-25)\big],
+\end{equation}
+y a 1000\,W/m$^2$ el modelo da $\approx$88.6\,W en $V_{mp}\approx18$\,V. La turbina es una fuente de Thevenin cuya tensión en vacío y resistencia equivalente dependen de la frecuencia $f$ fijada por el viento (arranque 3, nominal 11 y corte 25\,m/s),
+\begin{equation}
+\label{eq:Vdc}
+V_{dc}=V_{oc}(f)-R_{eq}(f)\,I,
+\end{equation}
+con un máximo ideal de 88.6\,W a 25.5\,Hz. La batería es un Thevenin de primer orden, con $I$ positiva en descarga,
+\begin{equation}
+\label{eq:Vbat}
+V_{bat}=V_{oc}(\mathrm{SOC})-I\,R_0(\mathrm{SOC})-V_1,
+\end{equation}
+\begin{equation}
+\label{eq:SOC}
+\mathrm{SOC}_{k+1}=\mathrm{SOC}_k-\frac{a\,\Delta t\,I}{3600\,Q}\times100,\quad a=60,\ Q=14.5\,\mathrm{Ah},
+\end{equation}
+y limita su corriente a 7\,A reducida por SOC, tensión y temperatura. La carga es de potencia constante,
+\begin{equation}
+\label{eq:Pcarga}
+P=\lambda\,p_u(h)\,P_{max},\qquad P_{max}=150\ \text{W},
+\end{equation}
+\begin{equation}
+\label{eq:Idc}
+I_{dc}=\frac{P}{\eta(FP)\,V_{bus}},\qquad \eta(FP)=0.96-0.30\,(1-FP)^2,
+\end{equation}
+con $\lambda\in[0,1]$ el nivel permitido por el SCADA y $p_u(h)$ el perfil residencial o industrial.
+
+
+
+\textbf{Corrección del MPPT del PV.} En las corridas de la semana 13 el PV quedó en circuito abierto al amanecer en tres ocasiones: la regla de inversión del P\&O solo actúa cuando la potencia baja, y de noche ($p=0$) nunca se cumple, así que la referencia de tensión se pegaba a su límite (23.8\,V $>V_{oc}\approx22.3$\,V). Ahora, si $p<0.5$\,W la referencia se estaciona en su valor inicial, y si toca un límite se invierte el sentido (verificado en la Sección~\ref{sec:p0}).
+
+\subsection{SCADA}
+
+El SCADA corre en el ESP32-S3 una vez por segundo. No tiene lazos continuos ni filtros: es una máquina de estados con histéresis y tiempos mínimos que solo manda a cada STM un modo (normal, limitado o seguro) y, cuando corresponde, un tope de potencia o un nivel de carga. Sus estados son NORMAL (S0), EXCEDENTE (S1--S4), DEFICIT (S5), deslastre por niveles según el SOC (S6, S7), SEGURO (S8, batería sin respuesta: se liberan los topes) y ARRANQUE (S9); las reglas están en el Anexo~F.
+
+
+\textbf{Excedente (S1--S4).} Si el bus supera 50.4\,V durante dos ciclos, S1 entra a EXCEDENTE y fija un tope absoluto a los generadores (primero la PV, hasta un piso de 15\,W, y luego la eólica, con piso de 13.4\,W). El escalón de recorte de S2 es proporcional al exceso de tensión,
+\begin{equation}
+\label{eq:dP}
+\Delta P=\min\{30,\,5+10\,(V_{bus}-50.4)\}\ \text{W},
+\end{equation}
+y se aplica cada 6\,s, o cada 2\,s si el bus supera 53\,V (en la semana 13 era fijo, 5\,W). S3 suelta un escalón cuando la batería vuelve a descargar y S4 devuelve los generadores a MPPT.
+
+\textbf{Déficit y deslastre (S5--S7).} El deslastre es escalonado y anticipado (en la semana 13 tenía un solo nivel, con SOC $<20$\,\%, y el SOC bajó a 13.0\,\%): la carga se lleva al 60, 40 y 25\,\% de su perfil cuando el SOC baja de 30, 25 y 20\,\%, y se restaura un nivel cada vez que el SOC supera 40, 35 y 30\,\% (histéresis de 10 puntos), con un tiempo mínimo de 10\,s entre cambios.
+
+\textbf{Arranque en negro (S9).} Por comando, cuatro pasos de 6\,s: todo en modo seguro (bus caído emulado), la batería forma el bus, la PV y la eólica reconectan en MPPT y por último se reconecta la carga.
+
+\subsection{Qué es hardware y qué es emulación}
+
+La Tabla~\ref{tab:hw} separa lo que es físico de lo que es modelo. \emph{Todo lo que ocurre entre una fuente y el bus es software}: no hay etapa de potencia, y por eso este trabajo valida la supervisión y el control, no la transferencia de potencia.
+
+\begin{table}[H]
+\caption{Hardware real frente a emulación}
+\label{tab:hw}
+\centering
+\scriptsize\setlength{\tabcolsep}{3pt}
+\begin{tabular}{|p{1.45cm}|p{2.7cm}|p{2.6cm}|}
+\hline
+ & \textbf{Hardware real} & \textbf{Emulado (firmware)} \\
+\hline
+Cómputo y comunicación & 4 STM32F303K8, ESP32-S3, bus I2C a 100\,kHz, Wi-Fi/MQTT, PC con registrador y tablero & --- \\ \hline
+Fuentes & --- & Irradiancia, viento, perfiles de carga, reloj de 360\,s \\ \hline
+Potencia & --- & Convertidores promediados, batería (Thevenin, SOC $\times60$), bus de 48\,V \\ \hline
+Perturbaciones & Desenergizar la placa del PV (E6) & Apagón de E5 (modo seguro); no hay contactor de aislamiento \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Metodología Experimental}
+\label{sec:metodo}
+
+Las pruebas se hicieron con el sistema integrado y el SCADA activo. El registrador guarda cada mensaje MQTT crudo con su marca de tiempo; todas las métricas se calculan a partir de ese CSV, contando muestras de 1\,s (los datos y los scripts están en el repositorio). Cada experimento es una captura continua con un solo registrador. Todos los experimentos se tomaron con el firmware v7 (semana 15) con los cuatro STM reiniciados a la vez; los de la semana 13 (firmware v6) se usan solo como línea base (Anexo~G). Antes de cada corrida se comprobó que el SCADA estuviera activo (\texttt{auto}\,=\,1) y que la carga no estuviera limitada.
+
+Los criterios de aceptación (Tabla~\ref{tab:crit}) se fijaron antes de repetir los experimentos. Un resultado se marca como cumplido solo si el dato medido lo satisface; el estado se evalúa en la Sección~\ref{sec:resumen}.
+
+\begin{table}[H]
+\caption{Experimentos y criterios de aceptación}
+\label{tab:crit}
+\centering
+\scriptsize\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{|c|p{2.0cm}|p{3.5cm}|}
+\hline
+\textbf{Exp.} & \textbf{Condición} & \textbf{Criterio} \\
+\hline
+P0 & PV y SCADA v7, carga alternante, $\sim$3 días & 0 de 3 amaneceres con el PV atascado \\ \hline
+E1 & Carga res./ind. cada 120\,s & $V_{bus}$ en banda $\ge95\,\%$; SOC mín. $\ge20\,\%$ \\ \hline
+E2/E3 & Excedente, sin/con SCADA & $V_{bus,max}\le53$\,V; $\le2$ ciclos S1 (E3); SCADA reduce $\ge30\,\%$ el tiempo $>53$\,V \\ \hline
+E4 & Carga industrial, SCADA activo & Deslastre en $\le2$\,s tras cruzar el umbral; SOC mín. $\ge20\,\%$ \\ \hline
+E5 & Arranque en negro, día y noche & Duración $\le30$\,s; $V_{bus}$ dentro de $\pm10\,\%$ \\ \hline
+E6 & Falla de un generador (emulada: PV desenergizado) & Detección $\le5$\,s; $V_{bus}$ en banda durante la falla; recuperación del sistema \\ \hline
+\end{tabular}
+\end{table}
+
+\section{Resultados}
+
+\subsection{P0: PV corregido y deslastre escalonado}
+\label{sec:p0}
+
+Se registró el sistema completo durante 1194\,s ($\approx$3.3 días simulados) con el firmware corregido del PV y el SCADA con deslastre escalonado, con la carga alternando entre los escenarios residencial e industrial.
+
+
+\textbf{PV.} El PV arrancó solo en los tres amaneceres consecutivos ($t\approx349$, 710 y 1069\,s): ya entregaba potencia en la primera muestra del día (3.5--6.1\,W) y alcanzaba el 10\,\% de su pico en 2.8, 3.4 y 4.9\,s. La referencia de tensión se mantuvo entre 15.8 y 19.4\,V, lejos del límite de 23.8\,V, y el pico diario fue de 88.6\,W.
+
+\textbf{Deslastre.} El SOC mínimo fue de 24.5\,\% ($t=1095$\,s) y nunca estuvo por debajo de 20\,\%, frente al 13.0\,\% de E4 y al 16.8\,\% de E1 en semana 13. El nivel 1 (60\,\%) se activó con el SOC en 29.9, 29.9 y 29.8\,\%, el nivel 2 (40\,\%) en 24.9\,\%, y la restauración llegó con el SOC en 40.3 y 40.1\,\% (al 100\,\%) y 35.1\,\% (al 60\,\%), como indica el diseño.
+
+\textbf{Bus y balance.} El bus se mantuvo en 48.00\,V durante toda la corrida (100\,\% dentro de la banda) y la batería estuvo descargando el 56.4\,\% del tiempo. La generación cubrió entre el 90 y el 96\,\% del consumo, de modo que el SOC baja de un día a otro (mínimos diarios de 38.5, 29.6, 26.7 y 24.5\,\%): el deslastre evita agotar la batería, pero el sistema está subdimensionado para este perfil.
+
+\subsection{E1: operación nominal con carga alternante}
+
+Con la carga alternando entre residencial e industrial cada 120\,s durante 1047\,s, el bus estuvo en banda el 100\,\% del tiempo (48.00\,V, desviación estándar de 0.00\,V), la batería descargó el 63.1\,\% del tiempo y el SOC cayó de 45.0\,\% a un mínimo de 24.8\,\% (Fig.~\ref{fig:e1}), frente a 16.8\,\% con el deslastre de semana 13. En el escenario residencial la generación media (73.3\,W) supera a la carga (55.3\,W) y la batería descarga el 49\,\% del tiempo; en el industrial la carga (101.0\,W) supera a la generación (75.4\,W) y descarga el 79\,\%. El deslastre actuó en el nivel 1 a los 574\,s (SOC 29.9\,\%) y en el nivel 2 a los 726\,s (24.9\,\%), y se restauró a los 785 y 803\,s (35.2 y 40.1\,\%), con cada evento en la misma muestra en que el SOC cruzó el umbral. No se llegó al nivel 3. El sistema estuvo en DEFICIT el 54\,\% de las muestras y no pasó por EXCEDENTE, de modo que E1 valida las reglas de déficit pero no las de excedente.
+
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth,height=0.21\textheight,keepaspectratio]{E1_sem15_serie.png}
+\caption{E1 (semana 15): tensión de bus, potencias, SOC y nivel de deslastre (sombreado: carga industrial).}
+\label{fig:e1}
+\end{figure}
+
+\subsection{E2 y E3: excedente, sin y con SCADA}
+
+\textbf{E2, excedente con SCADA.} Con la carga reducida a 40\,\%, la batería llegó a $\approx$98\,\% hacia $t=400$\,s y dejó de absorber potencia; el sobrante elevó el bus sobre 50.4\,V y S1 entró en 404.7\,s. Hubo tres episodios de excedente (picos de 57.29, 57.90 y 57.82\,V). El bus estuvo 313\,s fuera de banda (22.0\,\% de 1428\,s), 263\,s sobre 53\,V y 157\,s sobre 57\,V, con un recorte de hasta 87\,W, y de los 139 escalones S2, 128 fueron de $+0$\,W: el recorte ya estaba en su piso. Frente a la semana 13 (9.2\,\% fuera de banda) el resultado es peor, pero no lo atribuimos al SCADA porque las corridas no son idénticas y E2 no tiene una corrida sin SCADA de igual perfil.
+
+
+\textbf{E3, sin y con SCADA.} Se corrió el mismo escenario sin SCADA (A, 1003\,s) y con SCADA (B, 1076\,s), cada una de unos tres días simulados, con el mismo procedimiento (carga al 40\,\% hasta $t\approx290$\,s y luego residencial) y SOC parecido al entrar al primer episodio (94.0 y 92.8\,\% en $t=302$\,s) (Tabla~\ref{tab:e3r}, Fig.~\ref{fig:e3}). Las dos corridas no arrancan en la misma fase del día (el primer amanecer de B llega $\approx$18\,s antes), por lo que se comparan fracciones del tiempo total y no instantes.
+
+\begin{table}[H]
+\caption{E3 (semana 15): sin SCADA (A) y con SCADA (B), corrida completa}
+\label{tab:e3r}
+\centering
+\scriptsize
+\begin{tabular}{|l|c|c|}
+\hline
+\textbf{Métrica} & \textbf{A (sin SCADA)} & \textbf{B (con SCADA)} \\
+\hline
+Tiempo con $V_{bus}>53$\,V & 527\,s (52.5\,\%) & 164\,s (15.2\,\%) \\ \hline
+Tiempo dentro de banda & 47.0\,\% & 82.3\,\% \\ \hline
+$V_{bus}$ máximo (V) & 58.00 & 57.91 \\ \hline
+Recorte máximo (W) & 0 & 90 \\ \hline
+Entradas a EXCEDENTE (S1) & --- & 2 \\ \hline
+S1 tras cruzar $V_{bus}>50.4$\,V & --- & 1.8--1.9\,s \\ \hline
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth,height=0.21\textheight,keepaspectratio]{E3_sem15_AB.png}
+\caption{E3 (semana 15): $V_{bus}$ sin SCADA (A) y con SCADA (B), SOC y recorte aplicado. La línea punteada marca $t=302$\,s.}
+\label{fig:e3}
+\end{figure}
+
+El SCADA redujo de 52.5 a 15.2\,\% la fracción de tiempo con el bus sobre 53\,V ($-71\,\%$; $-68\,\%$ si se compara solo la ventana $t\in[302,1000]$\,s), subió el tiempo en banda de 47.0 a 82.3\,\% y entró a S1 unos 2\,s después de cruzar 50.4\,V, con solo 2 entradas en tres días. No evitó el pico: el bus llegó a 57.91\,V, igual que sin SCADA. Esos picos ocurren cuando la batería está llena ($\mathrm{SOC}\ge99.8\,\%$ y $P_{bat}\approx0$) y el recorte ya llegó a su piso (topes de 13--15\,W en cada generador), que supera la carga de 16--32\,W; ahí el SCADA repite escalones de $+0$\,W sin poder bajar más. Es un límite de dimensionamiento del recorte y de la emulación, que no disipa excedente, y no de la lógica de supervisión.
+
+\subsection{E4: déficit industrial con deslastre escalonado}
+
+Con carga industrial fija (\texttt{load ind} en $t=32.9$\,s), SOC inicial de 44.9\,\% y el SCADA activo, la carga (78.6\,W en media) superó a la generación (71.9\,W) y el SOC bajó unos 20 puntos en cada día (Fig.~\ref{fig:e4}). El deslastre se activó en tres ciclos: nivel 1 a los 328, 568 y 1017\,s (SOC 29.8--29.9\,\%), nivel 2 a los 350, 724 y 1050\,s (24.9\,\%) y restauración a 433/463 y 796/822\,s (35.2 y 40.1\,\%), cada evento en la misma muestra del cruce de umbral ($\le1$\,s). El SOC mínimo fue de \textbf{21.4\,\%} (13.0\,\% en semana 13, con SOC inicial de 50\,\%), el bus estuvo en 48.00\,V todo el tiempo, 519\,s en DEFICIT y 456\,s con deslastre activo. El ciclo deslastre--restauración se repite cada día simulado. \textbf{Límites:} en los dos primeros ciclos el SOC se detuvo en 24.4--24.9\,\%, sin llegar al nivel 3, y el tercer ciclo no terminó (la corrida acabó con el SOC en 21.4\,\% y aún bajando), así que no sabemos si habría pasado de 20\,\%. (Se descartó una primera corrida con la carga limitada a 40\,\% por error.)
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth,height=0.21\textheight,keepaspectratio]{E4_sem15_serie.png}
+\caption{E4 (semana 15): $V_{bus}$, potencias, SOC y nivel de deslastre (\texttt{shed}) en tres días simulados.}
+\label{fig:e4}
+\end{figure}
+
+\subsection{E5: arranque en negro}
+
+La secuencia de cuatro pasos de unos 6\,s se completó en 24.0\,s de día ($t=96.6$\,s) y 24.0\,s de noche ($t=326.5$\,s) (24.8 y 25.4\,s en semana 13), sin subsistemas fuera de línea; el sistema volvió solo a NORMAL (día) y a DEFICIT (noche). De noche el bus se quedó en 48.00\,V. De día subió a 53.81\,V ($+12.1\,\%$) durante $\approx$5\,s (4.0\,s sobre 53\,V) en el paso 1: la carga baja a $\approx$10\,W, el PV sigue entregando $\approx$140\,W y la batería forma el bus con su corriente limitada en modo seguro. Eso supera la banda de $\pm10\,\%$ (52.8\,V) por 1.0\,V y es algo peor que en semana 13 (52.92\,V). El apagón es emulado: E5 valida la secuencia de reconexión y no un arranque desde un bus realmente desenergizado.
+
+
+\subsection{E6: falla de un generador (emulada)}
+
+No existe contactor físico ni modo desconectado en el firmware, y no se modificó firmware: la falla se emuló desenergizando la placa del PV (desconectando su USB) durante $\approx$44\,s, con el sistema en operación normal y el SCADA activo (Fig.~\ref{fig:e6}). La última lectura del PV fue en $t=35.98$\,s (71.7\,W) y el gateway lo marcó fuera de línea en $t=39.03$\,s: detección en $\approx$2--3\,s (el instante exacto de la desconexión no se registró). La generación bajó de $\approx$109 a 15--20\,W (queda la eólica), la batería pasó de cargar $\approx$83\,W a cubrir el faltante ($+4$ a $+11$\,W) y $V_{bus}$ se mantuvo en 48.00\,V en toda la corrida, con el SOC en $\approx$51\,\%. Al reconectar, el PV volvió a línea en $t=79.97$\,s, arrancó en MPPT sin bloquearse y superó 85\,W hacia $t=100$\,s. \textbf{Alcance:} no es una apertura de contactor; el SCADA marca el subsistema como fuera de línea y es la batería, que regula el bus, la que cubre el faltante, sin una acción de aislamiento del SCADA. Al reconectar, la placa reinicia su reloj y queda desfasada del resto, y es una sola corrida de 162\,s.
+
+\begin{figure}[H]
+\centering
+\includegraphics[width=0.9\linewidth,height=0.21\textheight,keepaspectratio]{E6_falla_PV.png}
+\caption{E6: falla emulada del PV (zona sombreada, $\approx$36--80\,s).}
+\label{fig:e6}
+\end{figure}
+
+\subsection{Resumen frente a los criterios}
+\label{sec:resumen}
+
+\begin{table}[H]
+\caption{Resultados frente a los criterios de aceptación}
+\label{tab:res}
+\centering
+\scriptsize\setlength{\tabcolsep}{2.5pt}
+\begin{tabular}{|c|p{3.9cm}|c|}
+\hline
+\textbf{Exp.} & \textbf{Resultado medido} & \textbf{Estado} \\
+\hline
+P0 & 0 de 3 amaneceres atascados & \ding{51} \\ \hline
+E1 & $V_{bus}$ en banda 100\,\%; SOC mín. 24.8\,\% & \ding{51}\,/\,\ding{51} \\ \hline
+E2/E3 & $V_{bus,max}$ 57.91\,V; reducción del tiempo $>53$\,V: 71\,\%; 2 entradas a S1 (E3) & \ding{55}\,/\,\ding{51}\,/\,\ding{51} \\ \hline
+E4 & Deslastre $\le1$\,s tras el umbral; SOC mín. 21.4\,\% (tres ciclos) & \ding{51}\,/\,\ding{51} \\ \hline
+E5 & 24.0 / 24.0\,s; $+12.1\,\%$ de día, 0\,\% de noche & \ding{51}\,/\,\ding{55} (día) \\ \hline
+E6 & Detección $\approx$3\,s; $V_{bus}$ 48.00\,V; PV recuperado (emulado) & \ding{51} \\ \hline
+\end{tabular}
+\end{table}
+
+Frente a la semana 13 mejoran el SOC mínimo (E1: 16.8 a 24.8\,\%; E4: 13.0 a 21.4\,\%), la reducción del tiempo sobre 53\,V gracias al SCADA ($-27$ a $-71\,\%$) y el arranque en negro (24.8 y 25.4\,s a 24.0\,s). Se cumple la reducción de tiempo sobre 53\,V (71\,\% frente al 30\,\% exigido), el SOC mínimo sobre 20\,\% y el límite de ciclos S1. No se cumple el tope $V_{bus}\le53$\,V (57.91\,V, por el piso del recorte con la batería llena) ni la excursión de $\pm10\,\%$ en el arranque en negro de día (53.81\,V). El margen del SOC mínimo en E4 es pequeño (1.4 puntos) y cada resultado es de una sola corrida.
+
+
+
+\section{Comparación con las Arquitecturas de Referencia}
+
+Lo reportado es una emulación de señal y control sobre microcontroladores, no una réplica de los bancos físicos de los demás subgrupos. El PV equivale solo al modelo simplificado de~\cite{aristizabal2026pv}; la turbina simplifica la regulación del bus que el banco real~\cite{gonzalez2026eolica} no logra sin etapa activa; la batería es lo más alineado con~\cite{vega2026bateria}; la brecha mayor es la electrónica de potencia~\cite{pinto2026peb}, pues aquí no hay transferencia de potencia física; y el SCADA cambia el PLC con Modbus TCP de~\cite{alvarez2026scada} por un gateway ESP32 con MQTT, más liviano y no equivalente (Anexo~H).
+
+\section{Conclusiones}
+
+Se construyó una microrred DC de 48\,V emulada en la que cuatro subsistemas con modelo, convertidor y control local corren sobre un mismo reloj, con un SCADA que los acopla y supervisa. Se demostró que (i) la corrección del P\&O elimina el atasco del PV al amanecer (3 de 3 amaneceres), (ii) el bus se mantiene en 48.00\,V mientras la batería lo regula, incluso con la pérdida de un generador, y (iii) el deslastre por niveles sube el SOC mínimo de 13.0 a 21.4\,\% con carga industrial sostenida y de 16.8 a 24.8\,\% con carga alternante. En excedente, el recorte proporcional redujo 71\,\% el tiempo con el bus sobre 53\,V, pero no evitó el pico de $\approx$58\,V con la batería llena; en E2 el bus pasó más tiempo fuera de banda que en la semana 13 (22.0 frente a 9.2\,\%).
+
+\textbf{Limitaciones.} Cada experimento es una sola corrida, sin repeticiones para estimar dispersión, y A y B de E3 no arrancan en la misma fase del día. El apagón de E5 y todas las fuentes y convertidores son emulados, el excedente no se disipa en el modelo y E6 no es un contactor físico: se desenergizó la placa del PV. En E4 el SOC mínimo cumple el criterio con poco margen y su tercer ciclo no terminó.
+
+\textbf{Trabajo futuro.} Lo principal es llevar los subsistemas a lo físico: sustituir los modelos y convertidores promediados por fuentes y etapas de potencia reales (con contactores de aislamiento), y repetir los experimentos con el mismo procedimiento para medir la transferencia de potencia que aquí no se valida. A mucho más largo plazo, se podría estudiar si la toma de decisiones del SCADA (umbrales, recortes y deslastre) puede optimizarse o entrenarse con técnicas de inteligencia artificial, partiendo de los datos que ya registra el sistema.
+
+\textbf{Repositorio.} Código, datos y anexos técnicos (modelos, convertidor e I2C, lazos, reglas del SCADA, detalle de la semana 13 y comparación con referencias) están en \texttt{github.com/soofffp/VITA-DC-Microgrid} (etiqueta \texttt{EntregaS14}, archivo \texttt{docs/anexos\_tecnicos.pdf}); el \texttt{README.md} explica cómo compilar, cargar y analizar.
+
+\begin{thebibliography}{00}
+
+\bibitem{gonzalez2026eolica}
+J. D. González Cubides, J. D. Roa Ballén, and C. D. González Mayorga, ``Emulación experimental y supervisión SCADA de un subsistema eólico de 300 W para microrredes DC basado en PMSG,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{aristizabal2026pv}
+L. Á. Aristizábal Correa, J. F. Angulo Rubiano, and S. J. Fonseca Boada, ``Emulación de Arreglos Fotovoltaicos para Microrredes DC de Laboratorio: Pipeline en Python, Comparación de Modelos Eléctricos e Integración SCPI--Modbus TCP,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{alvarez2026scada}
+M. Alvarez Valenzuela, A. F. Mosquera Gómez, and Ó. M. Cristancho Florez, ``Informe Final: SCADA,'' Taller de Potencia, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{hernandez2026carga}
+J. F. Hernández, D. E. Niño Jimenez, and J. J. Castillo Urbano, ``Metodología de Emulación de Perfiles de Demanda en Microrredes DC mediante Integración C-HIL y Cargas Programables,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{pinto2026peb}
+J. D. Pinto Cardenas and J. J. Vasquez Polaina, ``Informe final: Bloque Modular de Electrónica de Potencia (PEBB) basado en un Convertidor DC--DC en Configuración de Medio Puente con IGBT para Microrredes DC,'' Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{vega2026bateria}
+L. D. Vega Moreno, J. S. Torres Soler, and J. J. Carrera Luna, ``Integración y caracterización de un sistema de almacenamiento 10s5p basado en Ion-Litio para microrredes DC,'' Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{bader2019pv}
+S.~Bader, X.-Y.~Ma, and B.~Oelmann, ``One-diode photovoltaic model parameters at indoor illumination levels -- A comparison,'' \emph{Solar Energy}, vol.~180, pp.~707--716, 2019. DOI: 10.1016/j.solener.2019.01.048.
+
+\bibitem{han2024battery}
+S.~Han, ``Optimal Charging Current Protocol with Multi-Stage Constant Current Using Dandelion Optimizer for Time-Domain Modeled Lithium-Ion Batteries,'' \emph{Applied Sciences}, vol.~14, no.~23, p.~11320, 2024. DOI: 10.3390/app142311320.
+
+\bibitem{benavides2025eolica}
+D.~E.~Benavides-Mendoza, C.~L.~Trujillo-Rodríguez, and Ó.~D.~Montoya-Giraldo, ``Modelado, diseño y control de un sistema de generación eólica basado en MPPT con convertidor electrónico de potencia para la integración de una turbina a una microrred,'' \emph{TecnoLógicas}, vol.~28, no.~62, pp.~1--28, 2025. DOI: 10.22430/22565337.3130.
+
+\bibitem{rodriguezlicea2018cpl}
+M.-A.~Rodríguez-Licea, F.-J.~Pérez-Pinal, J.-C.~Nuñez-Perez, and C.-A.~Herrera-Ramirez, ``Nonlinear Robust Control for Low Voltage Direct-Current Residential Microgrids with Constant Power Loads,'' \emph{Energies}, vol.~11, no.~5, p.~1130, 2018. DOI: 10.3390/en11051130.
+
+\bibitem{ontibon2025pebb}
+J.~Ontibón \emph{et al.}, ``Power Electronics Building Block for Power-Hardware-In-The-Loop and Its Application in Microgrid Research,'' 2025.
+
+\bibitem{anthropic2026claude}
+Anthropic, ``Claude (Sonnet),'' modelo de lenguaje de gran escala utilizado para la revisión de formato del documento, verificación de consistencia de citas, y revisión de gramática y ortografía, Anthropic, 2026. [En línea]. Disponible: https://www.anthropic.com/claude
+
+\end{thebibliography}
+
+
+\end{document}
