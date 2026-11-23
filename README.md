@@ -8,7 +8,7 @@ Cada subsistema corre en una **STM32F303K8** (modelo de la fuente, convertidor p
 
 *Línea continua: hardware real. Línea punteada naranja: emulado en firmware. Versión por capas en [`docs/figuras/arquitectura_capas.png`](docs/figuras/arquitectura_capas.png).*
 
-## Resultados principales (entrega S15)
+## Resultados principales
 
 | Exp. | Resultado medido | Criterio |
 |---|---|---|
@@ -19,7 +19,7 @@ Cada subsistema corre en una **STM32F303K8** (modelo de la fuente, convertidor p
 | E5 | Arranque en negro en 24.0 s; excursión de +12.1 % de día | excursión ±10 % **no cumplida de día** |
 | E6 | PV desenergizado y detectado en ≈ 3 s; el bus se mantiene en 48.00 V | emulado, sin contactor |
 
-Cada resultado es de una sola corrida. Las limitaciones y el análisis están en el informe (`docs/informe/`).
+Todos con el firmware v7 del gateway. Cada resultado es de una sola corrida. Las limitaciones y el análisis están en el informe (`docs/informe/`).
 
 ## Mapa del repositorio
 
@@ -29,11 +29,11 @@ Cada resultado es de una sola corrida. Las limitaciones y el análisis están en
 │   ├── gateway_esp32/        ESP32-S3: SCADA + MQTT (gateway_v7) y variante con medición de latencia (gateway_v7_diag)
 │   └── stm32_pv|eolica|bateria|carga/   una carpeta por placa (ver estado abajo)
 ├── scada_pc/                 registrador MQTT -> CSV y tablero SCADA (tkinter)
-├── datos/                    CSV crudos de cada experimento (P0, E1–E6) y de la entrega anterior (S13)
+├── datos/                    CSV crudos de cada experimento (P0, E1–E6) y línea base con el firmware anterior
 ├── analisis/                 métricas reproducibles y verificador de fase de E3
 └── docs/
     ├── informe/              informe IEEE (main.tex) y anexos técnicos (anexos_tecnicos.tex)
-    ├── protocolos/           protocolo de toma de datos e instructivo de retomas
+    ├── protocolos/           protocolo experimental y guía de repetición de E3 y E4
     ├── figuras/              figuras del informe y los scripts que las generan
     └── resultados_metricas.txt   salida de analisis/metricas_experimentos.py
 ```
@@ -75,11 +75,10 @@ Una fila por mensaje MQTT, con columnas `t_pc_iso, t_rel_s, topic, payload` (JSO
 | `firmware/stm32_pv` | `app_pv_M.c`, `pv_control.c` (con la corrección del P&O), `pv_control.h`, `conv_link.h` y `CMakeLists.txt`. Falta el resto del proyecto CubeMX (`main.c` generado, `.ioc`, HAL). |
 | `firmware/stm32_eolica`, `stm32_bateria`, `stm32_carga` | Pendiente: solo hay un `LEEME.txt`. |
 
-## Entrega
+## Informe y protocolo
 
-- Etiqueta de la entrega: **`EntregaS15`**.
-- Informe: `docs/informe/main.tex`. Anexos técnicos: `docs/informe/anexos_tecnicos.tex`.
-- Protocolo con los criterios de aceptación: `docs/protocolos/protocolo_toma_datos_S15.md`.
+- Informe técnico: `docs/informe/main.tex`. Anexos técnicos (modelos, convertidor, bus I2C, lazos de control, reglas del SCADA): `docs/informe/anexos_tecnicos.tex`.
+- Procedimiento y criterios de aceptación de cada experimento: `docs/protocolos/protocolo_experimentos.md`.
 
 ## Autores
 

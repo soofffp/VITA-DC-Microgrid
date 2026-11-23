@@ -1,7 +1,7 @@
 /*
  * Gateway I2C <-> MQTT de la MICRORED (PV + EOLICA + BATERIA + CARGA) — ESP32-S3   (v7)
  *
- * CAMBIOS v7 (entrega S14)
+ * CAMBIOS v7
  *  - EXCEDENTE: el escalon de recorte (S1/S2) es PROPORCIONAL al exceso de tension:
  *      paso = R_STEP_W + R_STEP_GAIN_WV * (Vbus - 50.4), acotado a R_STEP_MAX_W. Antes era fijo (5 W).
  *      Cadencia: DWELL_MS (6 s) o cada OVER_CYCLES (2 s) si Vbus > VBUS_FAST_V (53 V).

@@ -37,9 +37,9 @@ Todos con el firmware v7 del gateway y el PV con el MPPT corregido.
 
 Otras carpetas:
 
-- `s13/`: E1 y E2 de la entrega anterior (firmware viejo). Solo como línea base.
+- `linea_base_v6/`: E1 y E2 con la versión anterior del gateway (v6). Solo como línea base.
 - `intentos_previos/`: corrida de E4 del 18/11 descartada (la carga se limitó a 40 % por error y el SOC no bajó de 45 %).
 
-## Retomas pendientes
+## Repeticiones pendientes
 
-E4 largo (cerrar el tercer ciclo de deslastre) y E3 en fase (A y B con arranque simultáneo). Procedimiento en `docs/protocolos/instructivo_retomas_S15.md`; el verificador de fase es `analisis/check_fase_E3.py`.
+E4 largo (cerrar el tercer ciclo de deslastre) y E3 en fase (A y B con arranque simultáneo). Procedimiento en `docs/protocolos/repeticion_E3_E4.md`; el verificador de fase es `analisis/check_fase_E3.py`.

@@ -3,7 +3,7 @@ check_fase_E3.py -- verifica que dos corridas de E3 (A sin SCADA, B con SCADA) e
 
 Uso:   python analisis/check_fase_E3.py datos/E3_A.csv datos/E3_B.csv
 
-Criterios de validez (protocolo S15):
+Criterios de validez (ver docs/protocolos/protocolo_experimentos.md):
   - diferencia entre los amaneceres (PV cruza 5 W hacia arriba despues de t=200 s) <= 2 s
   - SOC en t=302 s de A y B dentro de 2 puntos
   - el PV entrega potencia en ambas corridas

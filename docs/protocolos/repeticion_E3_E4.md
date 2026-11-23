@@ -1,12 +1,12 @@
-# Instructivo de retomas — VITA-DC (para Tomás)
+# Repetición de E3 y E4 y medición de latencias — VITA-DC
 
-**Objetivo:** tomar tres cosas que le faltan al informe de la entrega S15 y que solo se pueden hacer con las STM en la mano:
+**Objetivo:** tres mediciones que requieren las placas físicas:
 
 1. **E4 largo** — cerrar el tercer ciclo de deslastre (en la corrida anterior el tercer ciclo quedó a medias).
 2. **E3 en fase** — repetir E3 A (sin SCADA) y B (con SCADA) con las cuatro STM arrancando a la vez. En las corridas anteriores el primer amanecer de B llegó ≈17 s antes que el de A.
 3. **Latencias I2C y MQTT** — se miden gratis durante las dos corridas anteriores, con un ESP32 reflasheado con un firmware que solo agrega medición.
 
-Tiempo estimado: 1.5 a 2 horas en total. Todo sale del protocolo `docs/protocolos/protocolo_toma_datos_S15.md`; este instructivo solo lo resume y agrega lo nuevo.
+Tiempo estimado: 1.5 a 2 horas en total. Los procedimientos base están en `docs/protocolos/protocolo_experimentos.md`; este documento los resume y agrega la medición de latencia.
 
 ---
 
@@ -22,9 +22,9 @@ Tiempo estimado: 1.5 a 2 horas en total. Todo sale del protocolo `docs/protocolo
 
 1. En Arduino IDE abre `firmware/gateway_esp32/gateway_v7_diag/gateway_v7_diag.ino` del repositorio.
 2. Copia tu `secrets.h` (el que ya usas con `gateway_v7`, con el WiFi y el broker) a esa misma carpeta. **No lo subas a GitHub.**
-3. Compila y carga al ESP32-S3. Si no compila, no insistas: manda el mensaje de error a Sofi y sigue con el `gateway_v7.ino` normal (se pierde solo la medición de latencia, las corridas valen igual).
+3. Compila y carga al ESP32-S3. Si no compila, seguir con el `gateway_v7.ino` normal (se pierde solo la medición de latencia, las corridas valen igual).
 4. Verifica en el Monitor Serie que diga "MQTT conectado" y que las 4 placas estén en línea.
-5. En una terminal: `mosquitto_sub -t "microred_ctrl/diag" -v`. Debe salir una línea por segundo del estilo `{"i2c_avg_us":...,"i2c_max_us":...,"i2c_n":...,"rtt_us":...,"pub_us":...}`. Si no sale, avisa antes de empezar.
+5. En una terminal: `mosquitto_sub -t "microred_ctrl/diag" -v`. Debe salir una línea por segundo del estilo `{"i2c_avg_us":...,"i2c_max_us":...,"i2c_n":...,"rtt_us":...,"pub_us":...}`. Si no sale, revisar la conexión al broker antes de empezar.
 
 > Esta versión agrega solo la medición (`microred_ctrl/diag`, 1 vez por segundo). La lógica del SCADA es idéntica a la v7. Anótalo en las notas: "firmware: v7 + diag".
 
@@ -39,7 +39,7 @@ Tiempo estimado: 1.5 a 2 horas en total. Todo sale del protocolo `docs/protocolo
 7. **Si el PV queda en 0 W con ≈22.3 V en un amanecer**, anótalo con la hora: el arreglo del MPPT falló.
 8. No cambies nada más del firmware. No reinicies nada a mitad de una corrida.
 
-Los comandos (`load ind`, `load res`, `load reduced 40`, `auto off`, `pv mppt`, `wind mppt`) se mandan igual que en las corridas de la semana pasada.
+Los comandos (`load ind`, `load res`, `load reduced 40`, `auto off`, `pv mppt`, `wind mppt`) se mandan igual que en las corridas anteriores (Monitor Serie del ESP32, tablero SCADA o MQTT).
 
 ## 3. E4 largo (≈ 25 min)
 
@@ -98,7 +98,7 @@ Anomalías: ________________________________________
 
 En la corrida E6 anterior no se registró el instante exacto de la desconexión del PV. Si la repiten: operación normal con SCADA activo; anota **la hora del PC, al segundo,** en que desenchufas el USB del PV y en que lo vuelves a enchufar (≈ 44 s después). Con eso se puede dar el tiempo de detección con precisión.
 
-## 7. Qué mandarle a Sofi
+## 7. Qué guardar
 
 - `E4_largo.csv`, `E3_A.csv`, `E3_B.csv` (y `E6.csv` si se repitió).
 - Las salidas del `check_fase_E3.py`.
