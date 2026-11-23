@@ -305,7 +305,7 @@ La secuencia de cuatro pasos de unos 6\,s se completó en 24.0\,s de día ($t=96
 
 \subsection{E6: falla de un generador (emulada)}
 
-No existe contactor físico ni modo desconectado en el firmware, y no se modificó firmware: la falla se emuló desenergizando la placa del PV (desconectando su USB) durante $\approx$44\,s, con el sistema en operación normal y el SCADA activo (Fig.~\ref{fig:e6}). La última lectura del PV fue en $t=35.98$\,s (71.7\,W) y el gateway lo marcó fuera de línea en $t=39.03$\,s: detección en $\approx$2--3\,s (el instante exacto de la desconexión no se registró). La generación bajó de $\approx$109 a 15--20\,W (queda la eólica), la batería pasó de cargar $\approx$83\,W a cubrir el faltante ($+4$ a $+11$\,W) y $V_{bus}$ se mantuvo en 48.00\,V en toda la corrida, con el SOC en $\approx$51\,\%. Al reconectar, el PV volvió a línea en $t=79.97$\,s, arrancó en MPPT sin bloquearse y superó 85\,W hacia $t=100$\,s. \textbf{Alcance:} no es una apertura de contactor; el SCADA marca el subsistema como fuera de línea y es la batería, que regula el bus, la que cubre el faltante, sin una acción de aislamiento del SCADA. Al reconectar, la placa reinicia su reloj y queda desfasada del resto, y es una sola corrida de 162\,s.
+No existe contactor físico ni modo desconectado en el firmware, y no se modificó firmware: la falla se emuló desenergizando la placa del PV (desconectando su USB) durante $\approx$44\,s, con el sistema en operación normal y el SCADA activo (Fig.~\ref{fig:e6}). La última lectura del PV fue en $t=35.98$\,s (71.7\,W) y el gateway lo marcó fuera de línea en $t=39.03$\,s: detección en $\approx$2--3\,s (el instante exacto de la desconexión no se registró). La generación bajó de $\approx$109 a 15--20\,W (queda la eólica), la batería pasó de cargar $\approx$83\,W a cubrir el faltante ($+4$ a $+11$\,W) y $V_{bus}$ se mantuvo en 48.00\,V en toda la corrida, con el SOC en $\approx$51\,\%. Al reconectar, el PV volvió a línea en $t=79.97$\,s y arrancó sin bloquearse; recuperó el 90\,\% de su potencia previa (71.7\,W) 45\,s después y el 100\,\% a los 53\,s. Ese tiempo lo marca la rampa de irradiancia, porque la placa reinicia su reloj y empieza de nuevo el día simulado, y no el MPPT. \textbf{Alcance:} no es una apertura de contactor; el SCADA marca el subsistema como fuera de línea y es la batería, que regula el bus, la que cubre el faltante, sin una acción de aislamiento del SCADA. La placa queda desfasada del resto y es una sola corrida de 162\,s.
 
 \begin{figure}[H]
 \centering
@@ -351,18 +351,18 @@ Se construyó una microrred DC de 48\,V emulada en la que cuatro subsistemas con
 
 \textbf{Trabajo futuro.} Lo principal es llevar los subsistemas a lo físico: sustituir los modelos y convertidores promediados por fuentes y etapas de potencia reales (con contactores de aislamiento), y repetir los experimentos con el mismo procedimiento para medir la transferencia de potencia que aquí no se valida. A mucho más largo plazo, se podría estudiar si la toma de decisiones del SCADA (umbrales, recortes y deslastre) puede optimizarse o entrenarse con técnicas de inteligencia artificial, partiendo de los datos que ya registra el sistema.
 
-\textbf{Repositorio.} Código, datos y anexos técnicos (modelos, convertidor e I2C, lazos, reglas del SCADA, detalle de la semana 13 y comparación con referencias) están en \texttt{github.com/soofffp/VITA-DC-Microgrid} (etiqueta \texttt{EntregaS15}, archivo \texttt{docs/anexos\_tecnicos.pdf}); el \texttt{README.md} explica cómo compilar, cargar y analizar.
+\textbf{Repositorio.} Código, datos y anexos técnicos (modelos, convertidor e I2C, lazos, reglas del SCADA, detalle de la semana 13 y comparación con referencias) están en \texttt{github.com/soofffp/VITA-DC-Microgrid} (etiqueta \texttt{EntregaS15}, archivo \texttt{docs/anexos\_tecnicos.pdf}); el \texttt{README.md} explica cómo compilar, cargar y analizar. Se usó un modelo de lenguaje~\cite{anthropic2026claude} solo para revisar formato, citas y redacción.
 
 \begin{thebibliography}{00}
-
-\bibitem{gonzalez2026eolica}
-J. D. González Cubides, J. D. Roa Ballén, and C. D. González Mayorga, ``Emulación experimental y supervisión SCADA de un subsistema eólico de 300 W para microrredes DC basado en PMSG,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
 
 \bibitem{aristizabal2026pv}
 L. Á. Aristizábal Correa, J. F. Angulo Rubiano, and S. J. Fonseca Boada, ``Emulación de Arreglos Fotovoltaicos para Microrredes DC de Laboratorio: Pipeline en Python, Comparación de Modelos Eléctricos e Integración SCPI--Modbus TCP,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
 
-\bibitem{alvarez2026scada}
-M. Alvarez Valenzuela, A. F. Mosquera Gómez, and Ó. M. Cristancho Florez, ``Informe Final: SCADA,'' Taller de Potencia, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+\bibitem{gonzalez2026eolica}
+J. D. González Cubides, J. D. Roa Ballén, and C. D. González Mayorga, ``Emulación experimental y supervisión SCADA de un subsistema eólico de 300 W para microrredes DC basado en PMSG,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
+
+\bibitem{vega2026bateria}
+L. D. Vega Moreno, J. S. Torres Soler, and J. J. Carrera Luna, ``Integración y caracterización de un sistema de almacenamiento 10s5p basado en Ion-Litio para microrredes DC,'' Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
 
 \bibitem{hernandez2026carga}
 J. F. Hernández, D. E. Niño Jimenez, and J. J. Castillo Urbano, ``Metodología de Emulación de Perfiles de Demanda en Microrredes DC mediante Integración C-HIL y Cargas Programables,'' Informe técnico, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
@@ -370,23 +370,8 @@ J. F. Hernández, D. E. Niño Jimenez, and J. J. Castillo Urbano, ``Metodología
 \bibitem{pinto2026peb}
 J. D. Pinto Cardenas and J. J. Vasquez Polaina, ``Informe final: Bloque Modular de Electrónica de Potencia (PEBB) basado en un Convertidor DC--DC en Configuración de Medio Puente con IGBT para Microrredes DC,'' Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
 
-\bibitem{vega2026bateria}
-L. D. Vega Moreno, J. S. Torres Soler, and J. J. Carrera Luna, ``Integración y caracterización de un sistema de almacenamiento 10s5p basado en Ion-Litio para microrredes DC,'' Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
-
-\bibitem{bader2019pv}
-S.~Bader, X.-Y.~Ma, and B.~Oelmann, ``One-diode photovoltaic model parameters at indoor illumination levels -- A comparison,'' \emph{Solar Energy}, vol.~180, pp.~707--716, 2019. DOI: 10.1016/j.solener.2019.01.048.
-
-\bibitem{han2024battery}
-S.~Han, ``Optimal Charging Current Protocol with Multi-Stage Constant Current Using Dandelion Optimizer for Time-Domain Modeled Lithium-Ion Batteries,'' \emph{Applied Sciences}, vol.~14, no.~23, p.~11320, 2024. DOI: 10.3390/app142311320.
-
-\bibitem{benavides2025eolica}
-D.~E.~Benavides-Mendoza, C.~L.~Trujillo-Rodríguez, and Ó.~D.~Montoya-Giraldo, ``Modelado, diseño y control de un sistema de generación eólica basado en MPPT con convertidor electrónico de potencia para la integración de una turbina a una microrred,'' \emph{TecnoLógicas}, vol.~28, no.~62, pp.~1--28, 2025. DOI: 10.22430/22565337.3130.
-
-\bibitem{rodriguezlicea2018cpl}
-M.-A.~Rodríguez-Licea, F.-J.~Pérez-Pinal, J.-C.~Nuñez-Perez, and C.-A.~Herrera-Ramirez, ``Nonlinear Robust Control for Low Voltage Direct-Current Residential Microgrids with Constant Power Loads,'' \emph{Energies}, vol.~11, no.~5, p.~1130, 2018. DOI: 10.3390/en11051130.
-
-\bibitem{ontibon2025pebb}
-J.~Ontibón \emph{et al.}, ``Power Electronics Building Block for Power-Hardware-In-The-Loop and Its Application in Microgrid Research,'' 2025.
+\bibitem{alvarez2026scada}
+M. Alvarez Valenzuela, A. F. Mosquera Gómez, and Ó. M. Cristancho Florez, ``Informe Final: SCADA,'' Taller de Potencia, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes, Bogotá, Colombia, 2026.
 
 \bibitem{anthropic2026claude}
 Anthropic, ``Claude (Sonnet),'' modelo de lenguaje de gran escala utilizado para la revisión de formato del documento, verificación de consistencia de citas, y revisión de gramática y ortografía, Anthropic, 2026. [En línea]. Disponible: https://www.anthropic.com/claude
