@@ -1,10 +1,8 @@
 # VITA-DC: microrred DC de 48 V emulada
 
-Plataforma de emulación de una microrred DC de 48 V con cuatro subsistemas (arreglo fotovoltaico, turbina eólica, banco de baterías y carga variable) y un SCADA. Proyecto de Taller de Potencia, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes.
+Sistema embebido que emula una microrred DC de 48 V con cuatro subsistemas (arreglo fotovoltaico, turbina eólica, banco de baterías y carga variable) y un SCADA. Proyecto de Taller de Potencia, Departamento de Ingeniería Eléctrica y Electrónica, Universidad de los Andes.
 
 Cada subsistema corre en una **STM32F303K8** (modelo de la fuente, convertidor promediado y control local, todo en una interrupción de 10 kHz). Un **ESP32-S3** las lee por I2C a 100 kHz, ejecuta el SCADA (máquina de estados S0–S9) y publica por MQTT hacia un registrador y un tablero en el PC.
-
-> **Alcance.** Todo lo que hay entre una fuente y el bus es software: no hay etapa de potencia física. Este trabajo valida la supervisión y el control, no la transferencia de potencia.
 
 ![Arquitectura del sistema](docs/figuras/arquitectura.png)
 
