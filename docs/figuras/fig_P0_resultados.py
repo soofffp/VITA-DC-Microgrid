@@ -1,6 +1,6 @@
 import pandas as pd, json, numpy as np, matplotlib
 matplotlib.use('Agg'); import matplotlib.pyplot as plt
-df=pd.read_csv('/mnt/user-data/uploads/2b99d177-P0_demo.csv')
+df=pd.read_csv('../../datos/P0_demo.csv')
 def sub(t):
     d=df[df.topic==t]; j=pd.json_normalize(d.payload.map(json.loads)); j.insert(0,'t',d.t_rel_s.values); return j
 pv=sub('microred/pv'); k=sub('microred_ctrl/estado'); ev=sub('microred_ctrl/sistema').dropna(subset=['evento'])

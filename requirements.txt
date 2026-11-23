@@ -1,0 +1,7 @@
+# Analisis y figuras
+pandas>=2.0
+numpy>=1.24
+matplotlib>=3.7
+# Registrador y tablero SCADA
+paho-mqtt>=1.6
+# El tablero usa tkinter, que viene con Python (en Linux: sudo apt install python3-tk)

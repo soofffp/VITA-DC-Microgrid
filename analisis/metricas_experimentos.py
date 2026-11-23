@@ -1,7 +1,7 @@
 """Metricas de P0 y E1-E6 a partir de los CSV del registrador (logger_raw.py).
 
 Uso (desde la raiz del repositorio):  python analisis/metricas_experimentos.py
-Imprime las cifras que usa el informe y las guarda en docs/metricas_experimentos.txt.
+Imprime las cifras que usa el informe y las guarda en docs/resultados_metricas.txt.
 Tiempos = suma de intervalos entre muestras del topic microred_ctrl/estado (~1 Hz).
 """
 import json, io, contextlib
@@ -48,4 +48,4 @@ with contextlib.redirect_stdout(buf):
           f"vuelve t={pv.t.iloc[i]:.2f} s ({pv.t.iloc[i]-pv.t.iloc[i-1]:.1f} s sin datos)")
     d = pd.read_csv("datos/E6.csv"); d = d[d.topic == "microred_ctrl/pv_online"]
     print("   pv_online:", ", ".join(f"{p} en t={t:.2f} s" for t, p in zip(d.t_rel_s, d.payload)))
-print(buf.getvalue()); open("docs/metricas_experimentos.txt", "w", encoding="utf8").write(buf.getvalue())
+print(buf.getvalue()); open("docs/resultados_metricas.txt", "w", encoding="utf8").write(buf.getvalue())

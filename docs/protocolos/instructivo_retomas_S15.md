@@ -6,7 +6,7 @@
 2. **E3 en fase** — repetir E3 A (sin SCADA) y B (con SCADA) con las cuatro STM arrancando a la vez. En las corridas anteriores el primer amanecer de B llegó ≈17 s antes que el de A.
 3. **Latencias I2C y MQTT** — se miden gratis durante las dos corridas anteriores, con un ESP32 reflasheado con un firmware que solo agrega medición.
 
-Tiempo estimado: 1.5 a 2 horas en total. Todo sale del protocolo `docs/protocolo_toma_datos_S15.md`; este instructivo solo lo resume y agrega lo nuevo.
+Tiempo estimado: 1.5 a 2 horas en total. Todo sale del protocolo `docs/protocolos/protocolo_toma_datos_S15.md`; este instructivo solo lo resume y agrega lo nuevo.
 
 ---
 
