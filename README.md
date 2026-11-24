@@ -28,12 +28,13 @@ Todos con el firmware v7 del gateway. Cada resultado es de una sola corrida. Las
 ├── firmware/
 │   ├── gateway_esp32/        ESP32-S3: SCADA + MQTT (gateway_v7) y variante con medición de latencia (gateway_v7_diag)
 │   └── stm32_pv|eolica|bateria|carga/   una carpeta por placa (ver estado abajo)
-├── scada_pc/                 registrador MQTT -> CSV y tablero SCADA (tkinter)
+├── scada_pc/                 registrador MQTT -> CSV, tablero SCADA (tkinter) y capa de alarmas (ISA-18.2)
 ├── datos/                    CSV crudos de cada experimento (P0, E1–E6) y línea base con el firmware anterior
-├── analisis/                 métricas reproducibles y verificador de fase de E3
+├── analisis/                 métricas reproducibles, indicadores de alarmas y verificador de fase de E3
 └── docs/
     ├── informe/              informe IEEE (main.tex) y anexos técnicos (anexos_tecnicos.tex)
     ├── protocolos/           protocolo experimental y guía de repetición de E3 y E4
+    ├── normativas.md         alineación con ISA-18.2 (alarmas) e ISA-101 (HMI)
     ├── figuras/              figuras del informe y los scripts que las generan
     └── resultados_metricas.txt   salida de analisis/metricas_experimentos.py
 ```
