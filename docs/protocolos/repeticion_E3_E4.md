@@ -13,7 +13,7 @@ Tiempo estimado: 1.5 a 2 horas en total. Los procedimientos base están en `docs
 ## 0. Qué necesitas
 
 - Las 4 STM32 (PV, eólica, batería, carga), el ESP32-S3 y el cableado I2C como en las corridas anteriores.
-- El PC con Mosquitto y la carpeta `C:\STM32\scada` con `logger_raw.py`.
+- El PC con Mosquitto y `scada_pc/logger_raw.py`.
 - Arduino IDE con la misma configuración con la que se cargó `gateway_v7.ino` (placa ESP32-S3, librería PubSubClient).
 - Un solo interruptor o regleta que energice las 4 STM **al mismo tiempo** (o un hub USB con interruptor). Esto es lo que más importa para E3.
 - Un papel o archivo de notas por corrida (plantilla en la sección 5).
@@ -31,7 +31,7 @@ Tiempo estimado: 1.5 a 2 horas en total. Los procedimientos base están en `docs
 ## 2. Reglas para que los datos valgan
 
 1. **Arranque sincronizado:** antes de cada corrida, apaga las 4 STM y enciéndelas a la vez con el mismo interruptor. Espera a que las 4 estén en línea.
-2. **Un logger por corrida:** `cd C:\STM32\scada` y `python logger_raw.py NOMBRE`. Inícialo antes de energizar o justo después (anota el desfase). Ciérralo con Ctrl+C al terminar.
+2. **Un logger por corrida:** `python scada_pc/logger_raw.py NOMBRE` (desde la raíz del repositorio). Inícialo antes de energizar o justo después (anota el desfase). Ciérralo con Ctrl+C al terminar.
 3. **SCADA automático activo** salvo que el experimento diga otra cosa.
 4. **Anota** la hora del PC de cada comando que envíes (el logger guarda la hora, pero la nota te salva si algo falla).
 5. **Guarda también el texto del Monitor Serie** del ESP32 en un `.txt` por corrida.

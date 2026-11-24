@@ -1,0 +1,62 @@
+INDICADORES DE ALARMAS (ISA-18.2) - reproduccion sobre los CSV de datos/
+Las pruebas estan aceleradas (1 dia = 360 s): son una prueba de esfuerzo, no carga de operador.
+
+== P0: 1194 s ==
+  alarmas activadas: 3 -> 1.5 por 10 min | maximo en una ventana de 10 min: 2 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 28 -> 14.1 por 10 min
+  por tag: SOC_BAJO 3
+  duracion: SOC_BAJO 66 s, SOC_BAJO 57 s, SOC_BAJO 115 s
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+== E1: 1047 s ==
+  alarmas activadas: 1 -> 0.6 por 10 min | maximo en una ventana de 10 min: 1 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 34 -> 19.5 por 10 min
+  por tag: SOC_BAJO 1
+  duracion: SOC_BAJO 217 s
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+== E2: 1428 s ==
+  alarmas activadas: 15 -> 6.3 por 10 min | maximo en una ventana de 10 min: 10 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 198 -> 83.2 por 10 min
+  por tag: BUS_ALTO 8, BUS_MUY_ALTO 4, RECORTE_AGOTADO 3
+  duracion: BUS_ALTO 13 s, BUS_MUY_ALTO 58 s, BUS_ALTO 66 s, RECORTE_AGOTADO 56 s, BUS_ALTO 16 s, BUS_MUY_ALTO 11 s, BUS_MUY_ALTO 104 s, BUS_ALTO 131 s ...
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+== E3 A (sin SCADA): 1009 s ==
+  alarmas activadas: 4 -> 2.4 por 10 min | maximo en una ventana de 10 min: 4 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 0 -> 0.0 por 10 min
+  por tag: BUS_ALTO 2, BUS_MUY_ALTO 2
+  duracion: BUS_MUY_ALTO 254 s, BUS_ALTO 261 s, BUS_ALTO 273 s, BUS_MUY_ALTO 271 s
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+== E3 B (con SCADA): 1080 s ==
+  alarmas activadas: 9 -> 5.0 por 10 min | maximo en una ventana de 10 min: 9 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 127 -> 70.5 por 10 min
+  por tag: BUS_ALTO 5, BUS_MUY_ALTO 2, RECORTE_AGOTADO 2
+  duracion: BUS_ALTO 15 s, BUS_MUY_ALTO 60 s, BUS_ALTO 63 s, RECORTE_AGOTADO 52 s, BUS_ALTO 5 s, BUS_ALTO 6 s, BUS_ALTO 6 s, BUS_MUY_ALTO 102 s ...
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+== E4: 1083 s ==
+  alarmas activadas: 3 -> 1.7 por 10 min | maximo en una ventana de 10 min: 2 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 35 -> 19.4 por 10 min
+  por tag: SOC_BAJO 3
+  duracion: SOC_BAJO 111 s, SOC_BAJO 234 s, SOC_BAJO 61 s
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+== E5: 525 s ==
+  alarmas activadas: 2 -> 2.3 por 10 min | maximo en una ventana de 10 min: 2 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 13 -> 14.9 por 10 min
+  por tag: BUS_ALTO 1, BUS_MUY_ALTO 1
+  duracion: BUS_MUY_ALTO 4 s, BUS_ALTO 8 s
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+== E6: 162 s ==
+  alarmas activadas: 1 -> 3.7 por 10 min | maximo en una ventana de 10 min: 1 | tiempo en inundacion (>10 en 10 min): 0.0 %
+  sin racionalizar (cada cambio de estado y cada evento que publica el SCADA): 3 -> 11.1 por 10 min
+  por tag: PV_OFFLINE 1
+  duracion: PV_OFFLINE 46 s
+  chattering (>=3 activaciones del mismo tag en 1 min): ninguno
+
+TOTAL en todos los experimentos: 38 alarmas en 7528 s -> 3.0 por 10 min (sin racionalizar: 34.9 por 10 min)
+Distribucion por prioridad de lo activado: Alta 24 %, Media 16 %, Baja 61 %
+Alarmas configuradas: 11 (Alta 5, Media 4, Baja 2). Con tan pocas alarmas, la regla 80/15/5 de la norma no es significativa.
