@@ -72,8 +72,7 @@ Una fila por mensaje MQTT, con columnas `t_pc_iso, t_rel_s, topic, payload` (JSO
 |---|---|
 | `firmware/gateway_esp32/gateway_v7` | Sketch completo del gateway (SCADA y MQTT), el usado en los experimentos. |
 | `firmware/gateway_esp32/gateway_v7_diag` | Igual, más medición de latencia I2C y MQTT (`microred_ctrl/diag`). Sin compilar todavía. |
-| `firmware/stm32_pv` | `app_pv_M.c`, `pv_control.c` (con la corrección del P&O), `pv_control.h`, `conv_link.h` y `CMakeLists.txt`. Falta el resto del proyecto CubeMX (`main.c` generado, `.ioc`, HAL). |
-| `firmware/stm32_eolica`, `stm32_bateria`, `stm32_carga` | Pendiente: solo hay un `LEEME.txt`. |
+| `firmware/stm32_pv`, `stm32_eolica`, `stm32_bateria`, `stm32_carga` | Proyecto CubeMX/CMake completo de cada placa (código propio, `.ioc`, scripts de CMake). Falta solo la HAL, que se regenera con CubeMX desde el `.ioc` (ver [`firmware/README.md`](firmware/README.md)). |
 
 ## Informe y protocolo
 

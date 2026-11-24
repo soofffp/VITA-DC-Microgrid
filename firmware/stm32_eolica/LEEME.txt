@@ -1,1 +1,0 @@
-Copia aqui el proyecto de CubeMX de esta placa (Core/, CMakeLists.txt, .ioc ...). No copies la carpeta build/.
