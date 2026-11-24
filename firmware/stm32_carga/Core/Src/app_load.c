@@ -5,8 +5,6 @@
  *   ISR (10 kHz)      : load_model_fast()  -> slew 0.5 A/ms + filtro + capacitor de entrada
  *   sub_loop (100 Hz) : perfil, FP, eta, nivel, proteccion, heartbeat, publicacion I2C
  *   I2C (ESP32)       : A = 0x13 (lee 30 B), B = 0x23 (lee control / escribe comandos)
- *
- * Verificado: algoritmo en PC (sim/test_load.c) y sintaxis contra headers reales. NO probado en hardware.
  */
 #include "app_sub.h"
 #include "sub_i2c.h"

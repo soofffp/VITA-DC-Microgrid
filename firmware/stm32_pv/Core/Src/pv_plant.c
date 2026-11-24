@@ -1,7 +1,7 @@
 #include "pv_plant.h"
 #include <math.h>
 
-/* Módulo Renogy RNG-100D-SS (datasheet) y ajuste de Rs/Rsh (Villalva, hecho en sim/sim_pv.py):
+/* Módulo Renogy RNG-100D-SS (datasheet) y ajuste de Rs/Rsh (Villalva):
  * a STC reproduce Pmpp = 100.16 W en V = 20.40 V, I = 4.91 A. */
 #define PV_ISC      5.21f
 #define PV_VOC      24.3f

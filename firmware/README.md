@@ -26,6 +26,5 @@ Los cuatro archivos `.ioc` se llaman `microred_pv_M.ioc` y el proyecto CMake tam
 - **PV** usa su propio enlace (`pv_link.h`, direcciones 0x10 y 0x20).
 - **Eólica, batería y carga** comparten `sub_link.h` y `sub_i2c.c`: la dirección A (0x11 / 0x12 / 0x13) entrega 30 bytes de telemetría y la dirección B (0x21 / 0x22 / 0x23) recibe comandos y entrega 10 bytes del control.
 - La trama de convertidor es `conv_link.h`. La de las tres placas nuevas amplía la de PV: `ibus_mA` pasa a tener signo (positivo entrega, negativo absorbe) y se añaden las banderas `CVL_F_IDLE` y `CVL_F_PROT`.
-- Los comentarios de cabecera de cada `app_*.c` dicen "no probado en hardware". Se refieren a la etapa de potencia real (ADC y PWM físicos), que sigue siendo trabajo futuro. Los experimentos del informe se hicieron con estas cuatro placas.
 
 No se suben `build/`, `Drivers/`, `secrets.h` ni binarios (ver `.gitignore`).

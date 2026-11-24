@@ -4,7 +4,7 @@
  * Idea: todos los subsistemas exponen su convertidor DC-DC con la MISMA interfaz hacia el SCADA:
  *   lado de entrada (fuente), lado de salida (bus de 48 V), duty y banderas de estado.
  * Lo que cambia entre subsistemas es solo el lazo de control que hay detras (MPPT, CC/CV, ...).
- * Hoy el convertidor vive dentro de la misma STM que la planta emulada; mañana puede moverse a otra
+ * Hoy el convertidor vive dentro de la misma STM que la planta emulada; podría moverse a otra
  * STM (o al convertidor fisico del PEBB) sin cambiar esta trama ni el SCADA.
  *
  * Trama de 10 bytes, little-endian, checksum XOR de los 9 anteriores.

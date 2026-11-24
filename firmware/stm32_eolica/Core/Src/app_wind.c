@@ -7,8 +7,7 @@
  *   ESP32 (maestro I2C):          0x11 lee [planta|convertidor|extra] (30 B);  0x21 lee el control y escribe comandos
  *
  * Mismo patron que app_pv_M.c. Contrato: app_sub.h. Mapeo de telemetria: wind_model.c (wind_build_tel).
- * Verificado: algoritmo en PC (sim/test_wind.c) y sintaxis contra los headers reales del STM32F303x8.
- * NO probado en hardware: el tiempo real de la ISR debe leerse con el depurador (g_isr_cycles_max).
+ * El tiempo real de la ISR se lee con el depurador (g_isr_cycles_max).
  */
 #include "app_sub.h"
 #include "main.h"

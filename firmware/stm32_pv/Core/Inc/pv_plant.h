@@ -6,7 +6,7 @@
  * Portable (sin HAL). Se llama una vez por periodo de planta (dt) con el duty que mide M
  * de la PWM de C. Devuelve V_pv e I_pv, que M saca por sus DAC hacia el ADC de C.
  *
- * Es el MISMO modelo que se validó en la simulación de PC (sim/sim_pv.py).
+ * Es el mismo modelo que se validó previamente en simulación de PC.
  */
 #ifndef PV_PLANT_H
 #define PV_PLANT_H

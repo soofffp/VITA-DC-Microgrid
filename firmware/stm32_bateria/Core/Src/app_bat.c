@@ -7,8 +7,8 @@
  *   ESP32 (maestro): direccion A (0x12) lee 30 B de telemetria; direccion B (0x22) lee 10 B del control y escribe
  *                    SETMODE / EXT / HEARTBEAT (ver sub_link.h).  Cualquier comando valido cuenta como heartbeat.
  *
- * Mañana la planta se reemplaza por ADC reales (V_pack, V_bus, iL) y el duty sale por TIM1; el control no cambia.
- * Verificado: algoritmo en PC (sim/test_bat.c) y sintaxis contra los headers reales del STM32F303x8. NO probado en hardware.
+ * Con hardware de potencia, la planta se reemplazaría por ADC reales (V_pack, V_bus, iL) y el duty saldría por TIM1;
+ * el control no cambiaría.
  */
 #include "app_sub.h"
 #include "main.h"

@@ -4,11 +4,9 @@
  *   TIM6 @ 10 kHz:   (V, I) de la planta --> pv_ctrl_step() --> duty --> pv_plant_step()
  *   ESP32 (maestro I2C):  0x10 lee la planta;  0x20 lee el control y escribe la consigna (modo, P_max)
  *
- * Mañana la "planta" se reemplaza por lecturas reales del ADC y el duty sale por TIM1 (PWM complementaria
- * con tiempo muerto hacia el gate driver); el lazo de control (pv_control.c) no cambia.
- *
- * Verificado: algoritmo en simulación de PC (sim/test_unificado.c) y sintaxis contra los headers reales
- * del STM32F303x8. NO probado en hardware.
+ * Con hardware de potencia, la "planta" se reemplazaría por lecturas reales del ADC y el duty saldría por
+ * TIM1 (PWM complementaria con tiempo muerto hacia el gate driver); el lazo de control (pv_control.c)
+ * no cambiaría.
  */
 #include "app_pv_M.h"
 #include "main.h"

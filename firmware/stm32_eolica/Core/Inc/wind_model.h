@@ -34,7 +34,7 @@ extern "C" {
 #define WIND_HYST_MS       0.3f     /* histeresis de reconexion tras parada (evita castañeteo en el umbral) */
 #endif
 
-/* ---- ajuste del PMSG + puente de diodos (sim/fit_pmsg.py, 22 puntos: Tabla VI + Tabla IV) ----
+/* ---- ajuste del PMSG + puente de diodos (ajuste a 22 puntos: Tabla VI + Tabla IV) ----
  *   V_dc = Ke*f - (R0 + K_R*f)*I - Vd      (f en Hz, I en A)                                         */
 #define WIND_KE        2.77651f   /* [V/Hz]  */
 #define WIND_R0        8.75047f   /* [ohm]   */
