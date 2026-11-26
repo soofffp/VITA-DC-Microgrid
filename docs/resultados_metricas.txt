@@ -33,34 +33,35 @@ muestras: EXCEDENTE 58.8 %, NORMAL 29.7 %, DEFICIT 11.5 %
   escalones S2: 139 (de ellos 128 de +0 W)
 
 == E3 A (sin SCADA) (datos/E3_A.csv) ==
-duracion 1009 s | Vbus en banda 47.1 % | Vbus max 58.00 V | tiempo >53 V 529 s (52.4 %)
-SOC inicial 46.7 % | SOC min 45.7 % (t=7 s) | bateria descargando 14.1 % | recorte max 0 W
-muestras: DEFICIT 100.0 %
+duracion 986 s | Vbus en banda 47.9 % | Vbus max 58.00 V | tiempo >53 V 509 s (51.6 %)
+SOC inicial 47.2 % | SOC min 46.6 % (t=3 s) | bateria descargando 13.6 % | recorte max 0 W
+muestras: DEFICIT 70.4 %, NORMAL 29.6 %
 
 == E3 B (con SCADA) (datos/E3_B.csv) ==
-duracion 1080 s | Vbus en banda 82.0 % | Vbus max 57.91 V | tiempo >53 V 168 s (15.5 %)
-SOC inicial 45.1 % | SOC min 45.1 % (t=0 s) | bateria descargando 30.2 % | recorte max 90 W
-muestras: EXCEDENTE 53.3 %, NORMAL 36.1 %, DEFICIT 10.6 %
-  t=  390.4 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 20 W (tope PV 60 / eolica -1)
-  t=  673.7 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
-  t=  718.7 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 30 W (tope PV 17 / eolica -1)
-  t= 1013.7 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
-  escalones S2: 86 (de ellos 79 de +0 W)
+duracion 1005 s | Vbus en banda 79.5 % | Vbus max 57.87 V | tiempo >53 V 176 s (17.5 %)
+SOC inicial 46.9 % | SOC min 46.6 % (t=2 s) | bateria descargando 29.0 % | recorte max 77 W
+muestras: EXCEDENTE 55.9 %, NORMAL 37.9 %, DEFICIT 6.3 %
+  t=  398.1 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 19 W (tope PV 55 / eolica -1)
+  t=  692.1 s  S4 LIBERAR: EXCEDENTE terminado, generadores en MPPT
+  t=  738.1 s  S1 ENTRADA a EXCEDENTE: Vbus>50.4 V, recorte 29 W (tope PV 23 / eolica -1)
+  escalones S2: 92 (de ellos 85 de +0 W)
 
 == E4 (datos/E4.csv) ==
-duracion 1083 s | Vbus en banda 100.0 % | Vbus max 48.00 V | tiempo >53 V 0 s (0.0 %)
-SOC inicial 44.9 % | SOC min 21.4 % (t=1079 s) | bateria descargando 57.9 % | recorte max 0 W
-muestras: NORMAL 52.0 %, DEFICIT 48.0 %
-  t=  328.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
-  t=  350.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
-  t=  433.1 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
-  t=  463.1 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
-  t=  568.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
-  t=  724.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
-  t=  796.2 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
-  t=  822.1 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
-  t= 1017.0 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
-  t= 1050.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+duracion 1467 s | Vbus en banda 100.0 % | Vbus max 48.00 V | tiempo >53 V 0 s (0.0 %)
+SOC inicial 47.1 % | SOC min 24.4 % (t=1447 s) | bateria descargando 54.7 % | recorte max 0 W
+muestras: NORMAL 55.0 %, DEFICIT 45.0 %
+  t=  334.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t=  361.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+  t=  439.1 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
+  t=  477.2 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+  t=  561.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t=  853.1 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+  t=  935.1 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t= 1080.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
+  t= 1159.1 s  S7 RESTAURAR nivel 1: SOC recuperado, carga al 60 %
+  t= 1197.1 s  S7 RESTAURAR nivel 0: SOC recuperado, carga al 100 %
+  t= 1287.2 s  S6 DESLASTRE nivel 1: SOC bajo, carga al 60 %
+  t= 1439.1 s  S6 DESLASTRE nivel 2: SOC bajo, carga al 40 %
 
 == E5 (datos/E5.csv) ==
 duracion 525 s | Vbus en banda 99.0 % | Vbus max 53.81 V | tiempo >53 V 4 s (0.8 %)

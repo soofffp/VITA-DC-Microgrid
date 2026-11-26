@@ -19,7 +19,7 @@ Cada subsistema corre en una **STM32F303K8** (modelo de la fuente, convertidor p
 | E5 | Arranque en negro en 24.0 s; excursión de +12.1 % de día | excursión ±10 % **no cumplida de día** |
 | E6 | PV desenergizado y detectado en ≈ 3 s; el bus se mantiene en 48.00 V | emulado, sin contactor |
 
-Todos con el firmware v7 del gateway. Cada resultado es de una sola corrida. Las limitaciones y el análisis están en el informe (`docs/informe/`).
+Todos con el firmware v7 del gateway. Cada resultado es de una sola corrida (E3 tiene además una primera tanda en `datos/intentos_previos/`). Las limitaciones y el análisis están en el informe (`docs/informe/`).
 
 ## Mapa del repositorio
 

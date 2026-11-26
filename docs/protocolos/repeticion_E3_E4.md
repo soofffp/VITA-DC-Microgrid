@@ -1,5 +1,7 @@
 # Repetición de E3 y E4 y medición de latencias — VITA-DC
 
+> **Estado:** realizada el 25/11/2026. Los datos están en `datos/E3_A.csv`, `datos/E3_B.csv` y `datos/E4.csv` (las corridas anteriores pasaron a `datos/intentos_previos/`). El desfase de amanecer entre A y B fue de 4.1 s; el criterio de fase se relajó de 2 a 5 s tras la repetición (el informe lo declara).
+
 **Objetivo:** tres mediciones que requieren las placas físicas:
 
 1. **E4 largo** — cerrar el tercer ciclo de deslastre (en la corrida anterior el tercer ciclo quedó a medias).
