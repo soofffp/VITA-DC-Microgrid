@@ -4,6 +4,13 @@
 
 Primera versión completa y validada del sistema: cuatro subsistemas emulados, SCADA con recorte y deslastre escalonado, tablero, registrador, datos de todos los experimentos y análisis reproducible.
 
+### Repeticiones del 25/11/2026
+
+- E3 (A y B) y E4 repetidos con el gateway `v7+diag` (`datos/E3_A.csv`, `datos/E3_B.csv`, `datos/E4.csv`); E4 cierra los tres ciclos de deslastre con SOC mínimo de 24.4 %.
+- Las corridas anteriores pasaron a `datos/intentos_previos/` (`*_primera_tanda.csv`).
+- Latencias I2C y MQTT calculadas sobre 3461 ciclos de esas tres corridas.
+- Criterio de fase de E3 relajado de 2 a 5 s tras la repetición (4.1 s medidos); declarado en el informe.
+
 ### Punto de partida
 
 La versión anterior (gateway v6) funcionaba, pero tenía tres limitaciones medidas en sus experimentos (`datos/linea_base_v6/`):
